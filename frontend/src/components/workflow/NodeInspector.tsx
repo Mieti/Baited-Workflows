@@ -3,6 +3,7 @@
 import { GitBranch, MousePointer2, Settings2, Trash2 } from "lucide-react";
 
 import { NodeIcon } from "@/components/workflow/NodeIcon";
+import { getAllowedBranchesForNode } from "@/lib/workflow/branches";
 import { blocksByType } from "@/lib/workflow/catalog";
 import type { ValidationIssue, WorkflowCanvasEdge, WorkflowCanvasNode } from "@/lib/workflow/types";
 
@@ -40,10 +41,11 @@ export function NodeInspector({
   onDeleteSelection
 }: NodeInspectorProps) {
   if (edge) {
-    const sourceBlock = edgeSourceNode ? blocksByType[edgeSourceNode.data.blockType] : null;
-    const branchOptions = sourceBlock?.allowedBranches?.length
-      ? sourceBlock.allowedBranches
-      : [String(edge.data?.branch ?? edge.label ?? "success")];
+    const currentBranch = String(edge.data?.branch ?? edge.label ?? "success");
+    const allowedBranches = getAllowedBranchesForNode(edgeSourceNode);
+    const branchOptions = allowedBranches.includes(currentBranch)
+      ? allowedBranches
+      : [currentBranch, ...allowedBranches];
 
     return (
       <aside className="flex h-full w-[360px] shrink-0 flex-col border-l border-line bg-panel">
@@ -90,7 +92,7 @@ export function NodeInspector({
             >
               {branchOptions.map((branch) => (
                 <option key={branch} value={branch}>
-                  {branch}
+                  {allowedBranches.includes(branch) ? branch : `${branch} (invalid)`}
                 </option>
               ))}
             </select>
@@ -230,7 +232,9 @@ export function NodeInspector({
                     }
                     className="mt-2 w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-baited-ink outline-none focus:border-baited-green"
                   >
-                    <option value="">Select</option>
+                    <option value="" disabled>
+                      Select...
+                    </option>
                     {param.options?.map((option) => (
                       <option key={option} value={option}>
                         {option}

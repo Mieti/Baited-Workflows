@@ -159,27 +159,16 @@ export const blockCatalog: BlockDefinition[] = [
         kind: "select",
         required: true,
         options: ["email_opened", "link_clicked", "credentials_submitted"]
-      },
-      {
-        name: "defaultBranch",
-        label: "Default branch",
-        kind: "select",
-        required: true,
-        options: ["else", "no", "timeout"]
       }
     ],
-    allowedBranches: [
-      "yes",
-      "no",
-      "else",
-      "opened",
-      "not_opened",
-      "clicked",
-      "not_clicked",
-      "credentials_submitted",
-      "not_submitted",
-      "timeout"
-    ]
+    branchRule: {
+      param: "condition",
+      branchesByValue: {
+        email_opened: ["opened", "not_opened"],
+        link_clicked: ["clicked", "not_clicked"],
+        credentials_submitted: ["credentials_submitted", "not_submitted"]
+      }
+    }
   },
   {
     type: "mark_low_risk",

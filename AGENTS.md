@@ -226,6 +226,7 @@ Workflow utilities:
 
 - `frontend/src/lib/workflow/types.ts`
 - `frontend/src/lib/workflow/catalog.ts`
+- `frontend/src/lib/workflow/branches.ts`
 - `frontend/src/lib/workflow/demo.ts`
 - `frontend/src/lib/workflow/transform.ts`
 - `frontend/src/lib/workflow/validation.ts`
@@ -249,6 +250,7 @@ Implemented:
 - bulk deletion of selected nodes/branches;
 - undo with `Ctrl+Z` and toolbar button for canvas/workflow edits;
 - edge selection and branch editing;
+- condition branch options derived from the selected condition;
 - node deletion;
 - edge deletion;
 - automatic cleanup of connected edges when a node is deleted;
@@ -403,6 +405,8 @@ Rules:
 - `number` params must be finite numbers;
 - `text` params must be strings;
 - branch labels cannot be duplicated from the same source;
+- condition branches must match the selected condition outcome set;
+- condition nodes must include every required outcome branch;
 - `condition` nodes need at least two outgoing branches;
 - non-condition action nodes with multiple outputs emit warnings;
 - nodes without incoming edges emit warnings, except the entrypoint;
@@ -484,12 +488,15 @@ Fixed:
 - async toast state extracted from the main builder component;
 - initial workflow load keeps controls disabled until viewport restore and history readiness are complete;
 - optional saved-workflow validation payload check made explicit with `is not None`.
+- condition `defaultBranch` removed in favor of condition-specific outcome branches;
+- select placeholders are disabled and new select params start empty until explicitly chosen.
 
 ## Guidance For Future Changes
 
 When modifying the workflow model:
 
 - update both frontend and backend catalogs if block shape changes;
+- update branch rules in both catalogs when condition outcomes change;
 - update `frontend/src/lib/workflow/types.ts`;
 - update `backend/app/schemas/workflow.py`;
 - update frontend and backend validation rules;

@@ -29,7 +29,7 @@ export const demoDefinition: WorkflowDefinition = {
       id: "opened-condition",
       type: "condition",
       label: "Email opened?",
-      params: { condition: "email_opened", defaultBranch: "else" }
+      params: { condition: "email_opened" }
     },
     {
       id: "sms",
@@ -47,7 +47,7 @@ export const demoDefinition: WorkflowDefinition = {
       id: "creds-condition",
       type: "condition",
       label: "Credentials submitted?",
-      params: { condition: "credentials_submitted", defaultBranch: "else" }
+      params: { condition: "credentials_submitted" }
     },
     {
       id: "high-risk-group",

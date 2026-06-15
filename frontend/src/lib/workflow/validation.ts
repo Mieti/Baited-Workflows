@@ -1,3 +1,4 @@
+import { getAllowedBranchesForNode } from "./branches";
 import { blocksByType } from "./catalog";
 import type { BlockParam, ValidationIssue, ValidationResult, WorkflowPayload } from "./types";
 
@@ -77,7 +78,7 @@ export function validateWorkflowClient(payload: WorkflowPayload): ValidationResu
 
     const sourceNode = nodesById.get(edge.source);
     const sourceBlock = sourceNode ? blocksByType[sourceNode.type] : null;
-    const allowedBranches = sourceBlock?.allowedBranches ?? [];
+    const allowedBranches = getAllowedBranchesForNode(sourceNode);
 
     if (allowedBranches.length && !allowedBranches.includes(edge.branch)) {
       errors.push({
@@ -131,12 +132,23 @@ export function validateWorkflowClient(payload: WorkflowPayload): ValidationResu
       });
     }
 
-    if (node.type === "condition" && branches.length < 2) {
-      errors.push({
-        code: "condition_needs_branches",
-        message: "Condition nodes need at least two outgoing branches.",
-        nodeId: node.id
-      });
+    if (node.type === "condition") {
+      const allowedBranches = getAllowedBranchesForNode(node);
+      const missingBranches = allowedBranches.filter((branch) => !branches.includes(branch));
+      if (allowedBranches.length && missingBranches.length) {
+        errors.push({
+          code: "condition_missing_outcome",
+          message: `Condition is missing outcome branch: ${missingBranches.join(", ")}.`,
+          nodeId: node.id
+        });
+      }
+      if (!allowedBranches.length && branches.length < 2) {
+        errors.push({
+          code: "condition_needs_branches",
+          message: "Condition nodes need at least two outgoing branches.",
+          nodeId: node.id
+        });
+      }
     }
 
     if (node.type !== "condition" && !block.terminal && branches.length > 1) {

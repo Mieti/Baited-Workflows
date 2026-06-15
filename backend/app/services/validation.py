@@ -2,7 +2,12 @@ from collections import defaultdict, deque
 from math import isfinite
 from typing import Any
 
-from app.schemas.workflow import ValidationIssue, ValidationResult, WorkflowDefinition
+from app.schemas.workflow import (
+    ValidationIssue,
+    ValidationResult,
+    WorkflowDefinition,
+    WorkflowNode,
+)
 from app.services.blocks import BLOCKS_BY_TYPE
 
 
@@ -98,7 +103,7 @@ def validate_workflow(definition: WorkflowDefinition) -> ValidationResult:
 
         source_node = nodes_by_id[edge.source]
         block = BLOCKS_BY_TYPE.get(source_node.type, {})
-        allowed_branches = set(block.get("allowedBranches", []))
+        allowed_branches = set(_allowed_branches_for_node(source_node))
         if allowed_branches and edge.branch not in allowed_branches:
             errors.append(
                 ValidationIssue(
@@ -151,14 +156,30 @@ def validate_workflow(definition: WorkflowDefinition) -> ValidationResult:
                 )
             )
 
-        if node.type == "condition" and len(branch_names) < 2:
-            errors.append(
-                ValidationIssue(
-                    code="condition_needs_branches",
-                    message="Condition nodes need at least two outgoing branches.",
-                    nodeId=node.id,
+        if node.type == "condition":
+            allowed_branches = _allowed_branches_for_node(node)
+            missing_branches = [
+                branch for branch in allowed_branches if branch not in branch_names
+            ]
+            if allowed_branches and missing_branches:
+                errors.append(
+                    ValidationIssue(
+                        code="condition_missing_outcome",
+                        message=(
+                            "Condition is missing outcome branch: "
+                            f"{', '.join(missing_branches)}."
+                        ),
+                        nodeId=node.id,
+                    )
                 )
-            )
+            if not allowed_branches and len(branch_names) < 2:
+                errors.append(
+                    ValidationIssue(
+                        code="condition_needs_branches",
+                        message="Condition nodes need at least two outgoing branches.",
+                        nodeId=node.id,
+                    )
+                )
 
         if node.type != "condition" and not block.get("terminal") and len(branch_names) > 1:
             warnings.append(
@@ -234,6 +255,18 @@ def _validate_param_value(
         )
 
     return None
+
+
+def _allowed_branches_for_node(node: WorkflowNode) -> list[str]:
+    block = BLOCKS_BY_TYPE.get(node.type, {})
+    branch_rule = block.get("branchRule")
+    if branch_rule:
+        value = node.params.get(branch_rule["param"])
+        if not isinstance(value, str):
+            return []
+        return branch_rule.get("branchesByValue", {}).get(value, [])
+
+    return block.get("allowedBranches", [])
 
 
 def _is_empty_param_value(value: Any) -> bool:

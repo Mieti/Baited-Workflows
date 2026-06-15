@@ -21,6 +21,10 @@ export type BlockDefinition = {
   color: string;
   params: BlockParam[];
   allowedBranches?: string[];
+  branchRule?: {
+    param: string;
+    branchesByValue: Record<string, string[]>;
+  };
   terminal?: boolean;
 };
 

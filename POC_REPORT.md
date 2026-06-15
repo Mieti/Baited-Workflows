@@ -88,6 +88,7 @@ Baited-POC/
         useWorkflowToasts.ts
       lib/api/
       lib/workflow/
+        branches.ts
     Dockerfile
     eslint.config.mjs
     package.json
@@ -128,6 +129,7 @@ Implementato:
 - undo tramite `Ctrl+Z` o bottone in toolbar;
 - selezione edge;
 - modifica branch edge da inspector;
+- branch edge limitate agli outcome coerenti con la condition selezionata;
 - rimozione edge selezionato;
 - rimozione nodo selezionato;
 - rimozione automatica degli edge collegati al nodo eliminato;
@@ -243,6 +245,8 @@ Regole:
 - parametri `number` obbligati a numeri finiti;
 - parametri `text` obbligati a stringhe;
 - branch duplicati vietati dallo stesso source;
+- branch delle `condition` derivate dalla condition selezionata;
+- outcome branch richieste tutte per una `condition` configurata;
 - `condition` con almeno due uscite;
 - warning su action node con piu' output;
 - warning su nodi senza incoming edge;
@@ -512,6 +516,29 @@ File:
 - `frontend/src/components/workflow/useWorkflowToasts.ts`
 - `frontend/src/components/workflow/WorkflowBuilder.tsx`
 - `backend/app/api/routes.py`
+
+### 14. Branch Semantics E Select Placeholder
+
+Fix:
+
+- rimossa la configurazione generica `defaultBranch` dai nodi `condition`;
+- gli outcome disponibili per un edge sono ora derivati dalla condition selezionata;
+- una condition `email_opened` ammette solo `opened` e `not_opened`;
+- una condition `link_clicked` ammette solo `clicked` e `not_clicked`;
+- una condition `credentials_submitted` ammette solo `credentials_submitted` e `not_submitted`;
+- la validazione richiede tutte le outcome branch previste per una condition configurata;
+- il placeholder `Select...` non e' piu' selezionabile come valore;
+- i nuovi blocchi con parametri `select` partono vuoti, obbligando l'utente a scegliere un valore.
+
+File:
+
+- `frontend/src/lib/workflow/branches.ts`
+- `frontend/src/lib/workflow/catalog.ts`
+- `frontend/src/components/workflow/NodeInspector.tsx`
+- `frontend/src/components/workflow/WorkflowBuilder.tsx`
+- `frontend/src/lib/workflow/validation.ts`
+- `backend/app/services/blocks.py`
+- `backend/app/services/validation.py`
 
 ## Setup
 

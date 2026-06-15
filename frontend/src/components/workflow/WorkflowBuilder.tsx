@@ -49,6 +49,7 @@ import {
   submitWorkflow,
   validateWorkflow
 } from "@/lib/api/client";
+import { getNextAvailableBranch } from "@/lib/workflow/branches";
 import { blockCatalog, blocksByType } from "@/lib/workflow/catalog";
 import { branchColor, canvasToPayload, payloadToCanvas } from "@/lib/workflow/transform";
 import type {
@@ -406,7 +407,7 @@ function WorkflowBuilderInner() {
       const params = Object.fromEntries(
         block.params.map((param) => [
           param.name,
-          param.kind === "select" ? (param.options?.[0] ?? "") : param.kind === "number" ? 1 : ""
+          param.kind === "select" ? "" : param.kind === "number" ? 1 : ""
         ])
       );
 
@@ -451,8 +452,24 @@ function WorkflowBuilderInner() {
         return;
       }
 
+      const branch = getNextAvailableBranch(
+        sourceNode,
+        edges.filter((edge) => edge.source === connection.source)
+      );
+      if (!branch) {
+        const message = sourceBlock?.branchRule
+          ? "Select the condition and use each outcome branch only once."
+          : "All available branches for this node are already connected.";
+        setNotice(message);
+        showToast({
+          message,
+          tone: "warning",
+          timeout: 5200
+        });
+        return;
+      }
+
       pushHistorySnapshot();
-      const branch = nextBranch(sourceNode?.data.blockType, edges.filter((edge) => edge.source === connection.source));
       const edge: Edge = {
         ...connection,
         id: `edge-${crypto.randomUUID?.() ?? Date.now()}`,
@@ -1014,18 +1031,6 @@ function getMaxBottomPanelHeight(container: HTMLDivElement | null) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
-}
-
-function nextBranch(blockType: string | undefined, existingEdges: WorkflowCanvasEdge[]) {
-  const used = new Set(existingEdges.map((edge) => String(edge.data?.branch ?? edge.label)));
-  const preferred =
-    blockType === "condition"
-      ? ["yes", "no", "else", "opened", "not_opened", "credentials_submitted", "not_submitted"]
-      : blockType === "wait_for_event"
-        ? ["success", "timeout"]
-        : ["success"];
-
-  return preferred.find((branch) => !used.has(branch)) ?? `branch_${existingEdges.length + 1}`;
 }
 
 function createsCycle(

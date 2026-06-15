@@ -31,5 +31,28 @@ def test_invalid_number_param_is_rejected() -> None:
     assert "invalid_param_type" in _error_codes(result)
 
 
+def test_condition_rejects_branch_unrelated_to_selected_condition() -> None:
+    definition = DEMO_DEFINITION.model_copy(deep=True)
+    edge = next(edge for edge in definition.edges if edge.id == "e-opened-low")
+    edge.branch = "credentials_submitted"
+
+    result = validate_workflow(definition)
+
+    assert result.valid is False
+    assert "invalid_branch" in _error_codes(result)
+
+
+def test_condition_requires_all_outcome_branches() -> None:
+    definition = DEMO_DEFINITION.model_copy(deep=True)
+    definition.edges = [
+        edge for edge in definition.edges if edge.id != "e-not-opened-sms"
+    ]
+
+    result = validate_workflow(definition)
+
+    assert result.valid is False
+    assert "condition_missing_outcome" in _error_codes(result)
+
+
 def _error_codes(result) -> set[str]:
     return {error.code for error in result.errors}

@@ -7,6 +7,7 @@ import type {
   WorkflowLayout,
   WorkflowPayload
 } from "./types";
+import { blocksByType } from "./catalog";
 
 export function payloadToCanvas(payload: WorkflowPayload): {
   nodes: WorkflowCanvasNode[];
@@ -49,7 +50,7 @@ export function canvasToPayload(
       id: node.id,
       type: node.data.blockType,
       label: node.data.label,
-      params: node.data.params
+      params: serializeNodeParams(node)
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
@@ -67,9 +68,19 @@ export function canvasToPayload(
   return { definition, layout };
 }
 
+function serializeNodeParams(node: WorkflowCanvasNode) {
+  const block = blocksByType[node.data.blockType];
+  if (!block) return node.data.params;
+
+  return Object.fromEntries(
+    block.params
+      .filter((param) => node.data.params[param.name] !== undefined)
+      .map((param) => [param.name, node.data.params[param.name]])
+  );
+}
+
 export function branchColor(branch: string) {
-  if (["opened", "yes", "success", "credentials_submitted"].includes(branch)) return "#25d57c";
-  if (["not_opened", "not_submitted", "no", "timeout"].includes(branch)) return "#ffb84d";
-  if (branch === "else") return "#8b8f98";
+  if (["opened", "clicked", "success", "credentials_submitted"].includes(branch)) return "#25d57c";
+  if (["not_opened", "not_clicked", "not_submitted", "timeout"].includes(branch)) return "#ffb84d";
   return "#65d3ff";
 }
