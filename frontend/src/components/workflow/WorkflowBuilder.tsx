@@ -547,6 +547,10 @@ function WorkflowBuilderInner() {
     let result: ValidationResult;
     let requestFailed = false;
 
+    if (source === "manual") {
+      dismissToast("workflow-save");
+      dismissToast("workflow-submit");
+    }
     setPendingAction("validating");
 
     try {
@@ -583,13 +587,15 @@ function WorkflowBuilderInner() {
     }
     setPendingAction(null);
     return result;
-  }, [payload, pendingAction, showToast, validation, workflowId]);
+  }, [dismissToast, payload, pendingAction, showToast, validation, workflowId]);
 
   const handleSave = useCallback(async () => {
     if (pendingAction) return;
 
     setSaveState("saving");
     setPendingAction("saving");
+    dismissToast("workflow-validation");
+    dismissToast("workflow-submit");
     try {
       const saved = await saveWorkflow(workflowId, workflowName, workflowDescription, payload);
       setWorkflowId(saved.id);
@@ -616,11 +622,22 @@ function WorkflowBuilderInner() {
     } finally {
       setPendingAction(null);
     }
-  }, [payload, pendingAction, showToast, workflowDescription, workflowId, workflowName]);
+  }, [
+    dismissToast,
+    payload,
+    pendingAction,
+    showToast,
+    workflowDescription,
+    workflowId,
+    workflowName
+  ]);
 
   const handleSubmit = useCallback(async () => {
     if (pendingAction) return;
 
+    dismissToast("workflow-validation");
+    dismissToast("workflow-save");
+    dismissToast("workflow-submit");
     const result = await runValidation({ source: "submit" });
     if (!result.valid) {
       const apiIssue = result.errors.find((issue) => issue.code === "api_validation_failed");
@@ -661,7 +678,7 @@ function WorkflowBuilderInner() {
     } finally {
       setPendingAction(null);
     }
-  }, [payload, pendingAction, runValidation, showToast, workflowId]);
+  }, [dismissToast, payload, pendingAction, runValidation, showToast, workflowId]);
 
   const focusIssue = useCallback(
     (issue: ValidationIssue) => {
