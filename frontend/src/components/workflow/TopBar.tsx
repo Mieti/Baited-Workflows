@@ -43,7 +43,7 @@ export function TopBar({
           <input
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
-            disabled={isLoading || isSaving || isSubmitting}
+            disabled={isLoading || isValidating || isSaving || isSubmitting}
             className="w-[360px] max-w-[44vw] truncate bg-transparent text-base font-semibold text-baited-ink outline-none"
           />
           <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
@@ -56,7 +56,7 @@ export function TopBar({
       <div className="flex items-center gap-2">
         <button
           onClick={onUndo}
-          disabled={!canUndo || isLoading || isSaving || isSubmitting}
+          disabled={!canUndo || isLoading || isValidating || isSaving || isSubmitting}
           className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-45"
           title="Undo last change (Ctrl+Z)"
           aria-label="Undo last change"
@@ -79,7 +79,7 @@ export function TopBar({
         </button>
         <button
           onClick={onSave}
-          disabled={isLoading || isSaving || isSubmitting}
+          disabled={isLoading || isValidating || isSaving || isSubmitting}
           className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-60"
           title="Save workflow to PostgreSQL"
         >
