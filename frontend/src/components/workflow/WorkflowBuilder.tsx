@@ -231,13 +231,6 @@ function WorkflowBuilderInner() {
       setPendingAction("loading");
       resetHistory();
       resetTransientHistory();
-      showToast({
-        id: "workflow-load",
-        message: "Loading workflow from the API...",
-        tone: "info",
-        busy: true,
-        timeout: 0
-      });
 
       try {
         const [remoteBlocks, workflow] = await Promise.all([getWorkflowBlocks(), getDemoWorkflow()]);
@@ -268,11 +261,6 @@ function WorkflowBuilderInner() {
           }, 0);
         }, 80);
         setNotice("Workflow loaded.");
-        showToast({
-          id: "workflow-load",
-          message: "Workflow loaded.",
-          tone: "success"
-        });
       } catch (error) {
         if (isCancelled) return;
 
@@ -560,13 +548,6 @@ function WorkflowBuilderInner() {
     let requestFailed = false;
 
     setPendingAction("validating");
-    showToast({
-      id: toastId,
-      message: source === "submit" ? "Checking workflow before mock submission..." : "Validating workflow...",
-      tone: "info",
-      busy: true,
-      timeout: 0
-    });
 
     try {
       result = await validateWorkflow(workflowId, payload);
@@ -592,12 +573,14 @@ function WorkflowBuilderInner() {
         ? "Validation passed."
         : "Validation found issues. Review the Validation tab.";
     setNotice(message);
-    showToast({
-      id: toastId,
-      message,
-      tone: requestFailed ? "error" : result.valid ? "success" : "warning",
-      timeout: requestFailed || !result.valid ? 6500 : 4200
-    });
+    if (source === "manual") {
+      showToast({
+        id: toastId,
+        message,
+        tone: requestFailed ? "error" : result.valid ? "success" : "warning",
+        timeout: requestFailed || !result.valid ? 6500 : 4200
+      });
+    }
     setPendingAction(null);
     return result;
   }, [payload, pendingAction, showToast, validation, workflowId]);
@@ -607,13 +590,6 @@ function WorkflowBuilderInner() {
 
     setSaveState("saving");
     setPendingAction("saving");
-    showToast({
-      id: "workflow-save",
-      message: "Saving workflow to PostgreSQL...",
-      tone: "info",
-      busy: true,
-      timeout: 0
-    });
     try {
       const saved = await saveWorkflow(workflowId, workflowName, workflowDescription, payload);
       setWorkflowId(saved.id);
@@ -647,23 +623,19 @@ function WorkflowBuilderInner() {
 
     const result = await runValidation({ source: "submit" });
     if (!result.valid) {
+      const apiIssue = result.errors.find((issue) => issue.code === "api_validation_failed");
+      const message =
+        apiIssue?.message ?? "Mock submission blocked until validation issues are resolved.";
       showToast({
         id: "workflow-submit",
-        message: "Mock submission blocked until validation issues are resolved.",
-        tone: "warning",
+        message,
+        tone: apiIssue ? "error" : "warning",
         timeout: 6500
       });
       return;
     }
 
     setPendingAction("submitting");
-    showToast({
-      id: "workflow-submit",
-      message: "Submitting mock execution payload...",
-      tone: "info",
-      busy: true,
-      timeout: 0
-    });
     try {
       const submitted = await submitWorkflow(workflowId, payload);
       setSubmission(submitted);

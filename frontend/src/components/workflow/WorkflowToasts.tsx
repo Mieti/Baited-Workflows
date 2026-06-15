@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Info, Loader2, X, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 
 export type WorkflowToastTone = "info" | "success" | "warning" | "error";
 
@@ -8,7 +8,6 @@ export type WorkflowToast = {
   id: string;
   message: string;
   tone: WorkflowToastTone;
-  busy?: boolean;
 };
 
 type WorkflowToastsProps = {
@@ -51,7 +50,6 @@ export function WorkflowToasts({ toasts, onDismiss }: WorkflowToastsProps) {
 }
 
 function ToastIcon({ toast }: { toast: WorkflowToast }) {
-  if (toast.busy) return <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-sky-300" />;
   if (toast.tone === "success") return <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-baited-green" />;
   if (toast.tone === "warning") return <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />;
   if (toast.tone === "error") return <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />;

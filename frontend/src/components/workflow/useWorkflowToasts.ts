@@ -8,7 +8,6 @@ type ShowToastOptions = {
   id?: string;
   message: string;
   tone: WorkflowToastTone;
-  busy?: boolean;
   timeout?: number;
 };
 
@@ -29,7 +28,7 @@ export function useWorkflowToasts() {
   }, []);
 
   const showToast = useCallback(
-    ({ id, message, tone, busy = false, timeout }: ShowToastOptions) => {
+    ({ id, message, tone, timeout }: ShowToastOptions) => {
       const toastId = id ?? `toast-${crypto.randomUUID?.() ?? Date.now()}`;
       const existingTimer = toastTimersRef.current.get(toastId);
       if (existingTimer !== undefined) {
@@ -38,7 +37,7 @@ export function useWorkflowToasts() {
       }
 
       setToasts((currentToasts) => {
-        const nextToast: WorkflowToast = { id: toastId, message, tone, busy };
+        const nextToast: WorkflowToast = { id: toastId, message, tone };
         const nextToasts = [
           ...currentToasts.filter((toast) => toast.id !== toastId),
           nextToast
@@ -46,7 +45,7 @@ export function useWorkflowToasts() {
         return nextToasts.slice(-MAX_VISIBLE_TOASTS);
       });
 
-      const resolvedTimeout = timeout ?? (busy ? 0 : DEFAULT_TOAST_TIMEOUT);
+      const resolvedTimeout = timeout ?? DEFAULT_TOAST_TIMEOUT;
       if (resolvedTimeout > 0) {
         const timer = window.setTimeout(() => dismissToast(toastId), resolvedTimeout);
         toastTimersRef.current.set(toastId, timer);

@@ -109,7 +109,7 @@ La UI e' una schermata unica composta da:
 - canvas centrale con nodi trascinabili e collegabili;
 - inspector destro per configurare nodi o edge;
 - bottom panel con tab `Validation`, `Payload`, `Submission Log`;
-- toast e spinner per comunicare caricamento, validazione, salvataggio e submit mock;
+- spinner e stati disabilitati per le operazioni in corso, con toast solo per esiti o blocchi significativi;
 - controlli zoom/fit e mini map in tema dark.
 
 ### Interazione Canvas
