@@ -21,7 +21,7 @@ import {
   type OnSelectionChangeFunc,
   type Viewport
 } from "@xyflow/react";
-import { GripHorizontal } from "lucide-react";
+import { GripHorizontal, Loader2 } from "lucide-react";
 import type { DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -29,6 +29,11 @@ import { BottomPanel } from "@/components/workflow/BottomPanel";
 import { NodeInspector } from "@/components/workflow/NodeInspector";
 import { NodePalette } from "@/components/workflow/NodePalette";
 import { TopBar } from "@/components/workflow/TopBar";
+import {
+  WorkflowToasts,
+  type WorkflowToast,
+  type WorkflowToastTone
+} from "@/components/workflow/WorkflowToasts";
 import { WorkflowNode } from "@/components/workflow/nodes/WorkflowNode";
 import {
   cloneSelection,
@@ -61,6 +66,7 @@ import type {
 
 const nodeTypes = { workflowNode: WorkflowNode };
 type PanelTab = "validation" | "payload" | "submission";
+type PendingAction = "loading" | "validating" | "saving" | "submitting" | null;
 const DEFAULT_BOTTOM_PANEL_HEIGHT = 260;
 const MIN_BOTTOM_PANEL_HEIGHT = 150;
 const MIN_CANVAS_HEIGHT = 280;
@@ -90,17 +96,78 @@ function WorkflowBuilderInner() {
   const [activeTab, setActiveTab] = useState<PanelTab>("validation");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction>("loading");
+  const [toasts, setToasts] = useState<WorkflowToast[]>([]);
   const [viewport, setViewportState] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const [bottomPanelHeight, setBottomPanelHeight] = useState(DEFAULT_BOTTOM_PANEL_HEIGHT);
   const [isResizingBottomPanel, setIsResizingBottomPanel] = useState(false);
   const workspaceColumnRef = useRef<HTMLDivElement | null>(null);
   const resizeStartRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const positionDragSnapshotRef = useRef<WorkflowHistorySnapshot | null>(null);
+  const toastTimersRef = useRef<Map<string, number>>(new Map());
   const hasLoadedWorkflowRef = useRef(false);
   const { fitView, screenToFlowPosition, setViewport } = useReactFlow<
     WorkflowCanvasNode,
     WorkflowCanvasEdge
   >();
+
+  const dismissToast = useCallback((id: string) => {
+    const timer = toastTimersRef.current.get(id);
+    if (timer) {
+      window.clearTimeout(timer);
+      toastTimersRef.current.delete(id);
+    }
+    setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
+  }, []);
+
+  const showToast = useCallback(
+    ({
+      id,
+      message,
+      tone,
+      busy = false,
+      timeout
+    }: {
+      id?: string;
+      message: string;
+      tone: WorkflowToastTone;
+      busy?: boolean;
+      timeout?: number;
+    }) => {
+      const toastId = id ?? `toast-${crypto.randomUUID?.() ?? Date.now()}`;
+      const existingTimer = toastTimersRef.current.get(toastId);
+      if (existingTimer) {
+        window.clearTimeout(existingTimer);
+        toastTimersRef.current.delete(toastId);
+      }
+
+      setToasts((currentToasts) => {
+        const nextToast: WorkflowToast = { id: toastId, message, tone, busy };
+        const nextToasts = [
+          ...currentToasts.filter((toast) => toast.id !== toastId),
+          nextToast
+        ];
+        return nextToasts.slice(-4);
+      });
+
+      const resolvedTimeout = timeout ?? (busy ? 0 : 4200);
+      if (resolvedTimeout > 0) {
+        const timer = window.setTimeout(() => dismissToast(toastId), resolvedTimeout);
+        toastTimersRef.current.set(toastId, timer);
+      }
+
+      return toastId;
+    },
+    [dismissToast]
+  );
+
+  useEffect(
+    () => () => {
+      toastTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      toastTimersRef.current.clear();
+    },
+    []
+  );
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) ?? null,
@@ -219,8 +286,16 @@ function WorkflowBuilderInner() {
   useEffect(() => {
     async function load() {
       hasLoadedWorkflowRef.current = false;
+      setPendingAction("loading");
       resetHistory();
       resetTransientHistory();
+      showToast({
+        id: "workflow-load",
+        message: "Loading workflow from the API...",
+        tone: "info",
+        busy: true,
+        timeout: 0
+      });
 
       try {
         const [remoteBlocks, workflow] = await Promise.all([getWorkflowBlocks(), getDemoWorkflow()]);
@@ -243,13 +318,28 @@ function WorkflowBuilderInner() {
             hasLoadedWorkflowRef.current = true;
           }, 0);
         }, 80);
+        setNotice("Workflow loaded.");
+        showToast({
+          id: "workflow-load",
+          message: "Workflow loaded.",
+          tone: "success"
+        });
       } catch (error) {
-        setNotice(getApiErrorMessage(error, "Workflow loading failed."));
+        const message = getApiErrorMessage(error, "Workflow loading failed.");
+        setNotice(message);
+        showToast({
+          id: "workflow-load",
+          message,
+          tone: "error",
+          timeout: 6500
+        });
         hasLoadedWorkflowRef.current = true;
+      } finally {
+        setPendingAction(null);
       }
     }
     void load();
-  }, [resetHistory, resetTransientHistory, setEdges, setNodes, setViewport]);
+  }, [resetHistory, resetTransientHistory, setEdges, setNodes, setViewport, showToast]);
 
   const markWorkflowEdited = useCallback(
     ({ semantic = true, notice: nextNotice }: { semantic?: boolean; notice?: string } = {}) => {
@@ -407,7 +497,13 @@ function WorkflowBuilderInner() {
       if (sourceBlock?.terminal) return;
 
       if (createsCycle(connection.source, connection.target, nodes, edges)) {
-        setNotice("Connection blocked: workflows must stay acyclic.");
+        const message = "Connection blocked: workflows must stay acyclic.";
+        setNotice(message);
+        showToast({
+          message,
+          tone: "warning",
+          timeout: 5200
+        });
         return;
       }
 
@@ -429,7 +525,7 @@ function WorkflowBuilderInner() {
       setSelection({ nodeIds: [], edgeIds: [edge.id] });
       markWorkflowEdited();
     },
-    [edges, markWorkflowEdited, nodes, pushHistorySnapshot, setEdges]
+    [edges, markWorkflowEdited, nodes, pushHistorySnapshot, setEdges, showToast]
   );
 
   const onDrop = useCallback(
@@ -487,12 +583,39 @@ function WorkflowBuilderInner() {
     [pushHistorySnapshot]
   );
 
-  const runValidation = useCallback(async () => {
+  const runValidation = useCallback(async ({ source = "manual" }: { source?: "manual" | "submit" } = {}) => {
+    if (pendingAction) {
+      return (
+        validation ?? {
+          valid: false,
+          errors: [
+            {
+              code: "operation_in_progress",
+              message: "Wait for the current operation to finish."
+            }
+          ],
+          warnings: []
+        }
+      );
+    }
+
+    const toastId = source === "submit" ? "workflow-submit-validation" : "workflow-validation";
     let result: ValidationResult;
+    let requestFailed = false;
+
+    setPendingAction("validating");
+    showToast({
+      id: toastId,
+      message: source === "submit" ? "Checking workflow before mock submission..." : "Validating workflow...",
+      tone: "info",
+      busy: true,
+      timeout: 0
+    });
 
     try {
       result = await validateWorkflow(workflowId, payload);
     } catch (error) {
+      requestFailed = true;
       result = {
         valid: false,
         errors: [
@@ -507,40 +630,110 @@ function WorkflowBuilderInner() {
 
     setValidation(result);
     setActiveTab("validation");
-    setNotice(result.valid ? "Validation passed." : "Validation found issues.");
+    const message = requestFailed
+      ? "Validation request failed."
+      : result.valid
+        ? "Validation passed."
+        : "Validation found issues. Review the Validation tab.";
+    setNotice(message);
+    showToast({
+      id: toastId,
+      message,
+      tone: requestFailed ? "error" : result.valid ? "success" : "warning",
+      timeout: requestFailed || !result.valid ? 6500 : 4200
+    });
+    setPendingAction(null);
     return result;
-  }, [payload, workflowId]);
+  }, [payload, pendingAction, showToast, validation, workflowId]);
 
   const handleSave = useCallback(async () => {
+    if (pendingAction) return;
+
     setSaveState("saving");
+    setPendingAction("saving");
+    showToast({
+      id: "workflow-save",
+      message: "Saving workflow to PostgreSQL...",
+      tone: "info",
+      busy: true,
+      timeout: 0
+    });
     try {
       const saved = await saveWorkflow(workflowId, workflowName, workflowDescription, payload);
       setWorkflowId(saved.id);
       setWorkflowStatus(saved.status);
       setValidation(saved.validationResult);
       setSaveState("saved");
-      setNotice(`Saved version ${saved.version} to PostgreSQL.`);
+      const message = `Saved version ${saved.version} to PostgreSQL.`;
+      setNotice(message);
+      showToast({
+        id: "workflow-save",
+        message,
+        tone: "success"
+      });
     } catch (error) {
+      const message = getApiErrorMessage(error, "Save failed.");
       setSaveState("error");
-      setNotice(getApiErrorMessage(error, "Save failed."));
+      setNotice(message);
+      showToast({
+        id: "workflow-save",
+        message,
+        tone: "error",
+        timeout: 6500
+      });
+    } finally {
+      setPendingAction(null);
     }
-  }, [payload, workflowDescription, workflowId, workflowName]);
+  }, [payload, pendingAction, showToast, workflowDescription, workflowId, workflowName]);
 
   const handleSubmit = useCallback(async () => {
-    const result = await runValidation();
-    if (!result.valid) return;
+    if (pendingAction) return;
 
+    const result = await runValidation({ source: "submit" });
+    if (!result.valid) {
+      showToast({
+        id: "workflow-submit",
+        message: "Mock submission blocked until validation issues are resolved.",
+        tone: "warning",
+        timeout: 6500
+      });
+      return;
+    }
+
+    setPendingAction("submitting");
+    showToast({
+      id: "workflow-submit",
+      message: "Submitting mock execution payload...",
+      tone: "info",
+      busy: true,
+      timeout: 0
+    });
     try {
       const submitted = await submitWorkflow(workflowId, payload);
       setSubmission(submitted);
       setWorkflowStatus("submitted");
       setActiveTab("submission");
-      setNotice("Mock submission stored in PostgreSQL.");
+      const message = "Mock submission stored in PostgreSQL.";
+      setNotice(message);
+      showToast({
+        id: "workflow-submit",
+        message,
+        tone: "success"
+      });
     } catch (error) {
+      const message = getApiErrorMessage(error, "Mock submission failed.");
       setActiveTab("submission");
-      setNotice(getApiErrorMessage(error, "Mock submission failed."));
+      setNotice(message);
+      showToast({
+        id: "workflow-submit",
+        message,
+        tone: "error",
+        timeout: 6500
+      });
+    } finally {
+      setPendingAction(null);
     }
-  }, [payload, runValidation, workflowId]);
+  }, [payload, pendingAction, runValidation, showToast, workflowId]);
 
   const focusIssue = useCallback(
     (issue: ValidationIssue) => {
@@ -634,6 +827,11 @@ function WorkflowBuilderInner() {
     };
   }, [isResizingBottomPanel, resizeBottomPanel]);
 
+  const isWorkflowLoading = pendingAction === "loading";
+  const isValidating = pendingAction === "validating";
+  const isSaving = pendingAction === "saving";
+  const isSubmitting = pendingAction === "submitting";
+
   return (
     <main className="flex h-screen min-h-[760px] flex-col overflow-hidden bg-canvas text-baited-ink">
       <TopBar
@@ -641,6 +839,10 @@ function WorkflowBuilderInner() {
         status={workflowStatus}
         saveState={saveState}
         canUndo={canUndo}
+        isLoading={isWorkflowLoading}
+        isValidating={isValidating}
+        isSaving={isSaving}
+        isSubmitting={isSubmitting}
         onNameChange={handleNameChange}
         onUndo={handleUndo}
         onValidate={runValidation}
@@ -653,6 +855,14 @@ function WorkflowBuilderInner() {
 
         <div ref={workspaceColumnRef} className="flex min-w-0 flex-1 flex-col">
           <div className="workflow-grid relative min-h-[280px] flex-1">
+            {isWorkflowLoading ? (
+              <div className="absolute inset-0 z-20 grid place-items-center bg-canvas/70 backdrop-blur-[1px]">
+                <div className="flex items-center gap-3 rounded-md border border-line bg-panel/95 px-4 py-3 text-sm font-semibold text-baited-ink shadow-node">
+                  <Loader2 className="h-4 w-4 animate-spin text-baited-green" />
+                  Loading workflow
+                </div>
+              </div>
+            ) : null}
             <ReactFlow
               nodes={decoratedNodes}
               edges={edges}
@@ -826,6 +1036,7 @@ function WorkflowBuilderInner() {
           onDeleteSelection={deleteSelection}
         />
       </div>
+      <WorkflowToasts toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 }

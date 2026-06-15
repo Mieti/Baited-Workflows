@@ -1,12 +1,16 @@
 "use client";
 
-import { CheckCircle2, Database, PlayCircle, Save, Shield, Undo2 } from "lucide-react";
+import { CheckCircle2, Database, Loader2, PlayCircle, Save, Shield, Undo2 } from "lucide-react";
 
 type TopBarProps = {
   name: string;
   status: string;
   saveState: "idle" | "saving" | "saved" | "error";
   canUndo: boolean;
+  isLoading: boolean;
+  isValidating: boolean;
+  isSaving: boolean;
+  isSubmitting: boolean;
   onNameChange: (name: string) => void;
   onUndo: () => void;
   onValidate: () => void;
@@ -19,6 +23,10 @@ export function TopBar({
   status,
   saveState,
   canUndo,
+  isLoading,
+  isValidating,
+  isSaving,
+  isSubmitting,
   onNameChange,
   onUndo,
   onValidate,
@@ -35,6 +43,7 @@ export function TopBar({
           <input
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
+            disabled={isLoading || isSaving || isSubmitting}
             className="w-[360px] max-w-[44vw] truncate bg-transparent text-base font-semibold text-baited-ink outline-none"
           />
           <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
@@ -47,7 +56,7 @@ export function TopBar({
       <div className="flex items-center gap-2">
         <button
           onClick={onUndo}
-          disabled={!canUndo}
+          disabled={!canUndo || isLoading || isSaving || isSubmitting}
           className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-45"
           title="Undo last change (Ctrl+Z)"
           aria-label="Undo last change"
@@ -57,28 +66,38 @@ export function TopBar({
         </button>
         <button
           onClick={onValidate}
-          className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70"
+          disabled={isLoading || isValidating || isSaving || isSubmitting}
+          className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-60"
           title="Validate workflow"
         >
-          <CheckCircle2 className="h-4 w-4 text-baited-green" />
-          Validate
+          {isValidating ? (
+            <Loader2 className="h-4 w-4 animate-spin text-baited-green" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4 text-baited-green" />
+          )}
+          {isValidating ? "Validating" : "Validate"}
         </button>
         <button
           onClick={onSave}
-          disabled={saveState === "saving"}
-          className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:opacity-60"
+          disabled={isLoading || isSaving || isSubmitting}
+          className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-60"
           title="Save workflow to PostgreSQL"
         >
-          <Save className="h-4 w-4 text-sky-300" />
-          Save
+          {isSaving ? (
+            <Loader2 className="h-4 w-4 animate-spin text-sky-300" />
+          ) : (
+            <Save className="h-4 w-4 text-sky-300" />
+          )}
+          {isSaving ? "Saving" : "Save"}
         </button>
         <button
           onClick={onSubmit}
-          className="flex items-center gap-2 rounded-md bg-baited-coral px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#ff7a68]"
+          disabled={isLoading || isValidating || isSaving || isSubmitting}
+          className="flex items-center gap-2 rounded-md bg-baited-coral px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#ff7a68] disabled:cursor-not-allowed disabled:opacity-60"
           title="Submit mock execution payload"
         >
-          <PlayCircle className="h-4 w-4" />
-          Submit mock
+          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+          {isSubmitting ? "Submitting" : "Submit mock"}
         </button>
         <div className="ml-2 flex items-center gap-2 rounded-md border border-line bg-canvas px-3 py-2 text-xs text-zinc-400">
           <Database className="h-4 w-4 text-zinc-500" />

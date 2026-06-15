@@ -255,6 +255,7 @@ Implemented:
 - validation tab;
 - payload preview tab;
 - submission log tab;
+- loading overlays and toast notifications for async workflow actions;
 - saved viewport in `layout.viewport`;
 - CORS support for both `localhost` and `127.0.0.1`.
 

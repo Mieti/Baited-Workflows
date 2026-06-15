@@ -108,6 +108,7 @@ La UI e' una schermata unica composta da:
 - canvas centrale con nodi trascinabili e collegabili;
 - inspector destro per configurare nodi o edge;
 - bottom panel con tab `Validation`, `Payload`, `Submission Log`;
+- toast e spinner per comunicare caricamento, validazione, salvataggio e submit mock;
 - controlli zoom/fit e mini map in tema dark.
 
 ### Interazione Canvas
@@ -131,6 +132,7 @@ Implementato:
 - rimozione automatica degli edge collegati al nodo eliminato;
 - focus su nodo cliccando un errore di validazione;
 - salvataggio del viewport corrente nel payload.
+- feedback visuale per operazioni asincrone e blocchi di connessione non validi.
 
 ### Blocchi Disponibili
 
