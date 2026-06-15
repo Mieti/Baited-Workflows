@@ -7,9 +7,13 @@ import type {
   WorkflowLayout,
   WorkflowPayload
 } from "./types";
-import { blocksByType } from "./catalog";
+import { blocksByType as fallbackBlocksByType } from "./catalog";
+import type { BlockLookup } from "./branches";
 
-export function payloadToCanvas(payload: WorkflowPayload): {
+export function payloadToCanvas(
+  payload: WorkflowPayload,
+  blocksByType: BlockLookup = fallbackBlocksByType
+): {
   nodes: WorkflowCanvasNode[];
   edges: WorkflowCanvasEdge[];
 } {
@@ -21,6 +25,7 @@ export function payloadToCanvas(payload: WorkflowPayload): {
       blockType: node.type,
       label: node.label,
       params: node.params,
+      block: blocksByType[node.type],
       status: "idle"
     }
   }));
@@ -42,7 +47,8 @@ export function payloadToCanvas(payload: WorkflowPayload): {
 export function canvasToPayload(
   nodes: WorkflowCanvasNode[],
   edges: WorkflowCanvasEdge[],
-  viewport: Viewport = { x: 0, y: 0, zoom: 1 }
+  viewport: Viewport = { x: 0, y: 0, zoom: 1 },
+  blocksByType: BlockLookup = fallbackBlocksByType
 ): WorkflowPayload {
   const definition: WorkflowDefinition = {
     schemaVersion: 1,
@@ -50,7 +56,7 @@ export function canvasToPayload(
       id: node.id,
       type: node.data.blockType,
       label: node.data.label,
-      params: serializeNodeParams(node)
+      params: serializeNodeParams(node, blocksByType)
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
@@ -68,7 +74,7 @@ export function canvasToPayload(
   return { definition, layout };
 }
 
-function serializeNodeParams(node: WorkflowCanvasNode) {
+function serializeNodeParams(node: WorkflowCanvasNode, blocksByType: BlockLookup) {
   const block = blocksByType[node.data.blockType];
   if (!block) return node.data.params;
 

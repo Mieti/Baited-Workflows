@@ -205,7 +205,11 @@ export const blockCatalog: BlockDefinition[] = [
   }
 ];
 
-export const blocksByType = Object.fromEntries(blockCatalog.map((block) => [block.type, block]));
+export function createBlocksByType(blocks: BlockDefinition[]) {
+  return Object.fromEntries(blocks.map((block) => [block.type, block]));
+}
+
+export const blocksByType = createBlocksByType(blockCatalog);
 
 export function groupedBlocks(blocks: BlockDefinition[]) {
   return blocks.reduce<Record<string, BlockDefinition[]>>((acc, block) => {

@@ -1,9 +1,13 @@
-import { blocksByType } from "./catalog";
+import { blocksByType as fallbackBlocksByType } from "./catalog";
 import type { BlockDefinition, WorkflowCanvasEdge, WorkflowCanvasNode, WorkflowNodeDefinition } from "./types";
 
 type BranchSource = WorkflowCanvasNode | WorkflowNodeDefinition;
+export type BlockLookup = Record<string, BlockDefinition | undefined>;
 
-export function getAllowedBranchesForNode(node: BranchSource | null | undefined): string[] {
+export function getAllowedBranchesForNode(
+  node: BranchSource | null | undefined,
+  blocksByType: BlockLookup = fallbackBlocksByType
+): string[] {
   if (!node) return [];
 
   const blockType = "data" in node ? node.data.blockType : node.type;
@@ -13,10 +17,11 @@ export function getAllowedBranchesForNode(node: BranchSource | null | undefined)
 
 export function getNextAvailableBranch(
   node: BranchSource | null | undefined,
-  existingEdges: WorkflowCanvasEdge[]
+  existingEdges: WorkflowCanvasEdge[],
+  blocksByType: BlockLookup = fallbackBlocksByType
 ) {
   const used = new Set(existingEdges.map((edge) => String(edge.data?.branch ?? edge.label)));
-  return getAllowedBranchesForNode(node).find((branch) => !used.has(branch)) ?? null;
+  return getAllowedBranchesForNode(node, blocksByType).find((branch) => !used.has(branch)) ?? null;
 }
 
 export function getAllowedBranchesForBlock(
@@ -31,6 +36,5 @@ export function getAllowedBranchesForBlock(
     return typeof value === "string" ? (rule.branchesByValue[value] ?? []) : [];
   }
 
-  return block.allowedBranches ?? [];
+  return block.allowedBranches ?? block.outputs?.map((output) => output.key) ?? [];
 }
-

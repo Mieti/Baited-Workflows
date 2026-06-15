@@ -9,7 +9,13 @@ engine = create_engine(settings.database_url, echo=False, pool_pre_ping=True)
 
 
 def init_db() -> None:
+    import app.models.workflow  # noqa: F401
+
     SQLModel.metadata.create_all(engine)
+    from app.services.blocks import seed_block_catalog
+
+    with Session(engine) as session:
+        seed_block_catalog(session)
 
 
 def get_session() -> Generator[Session, None, None]:

@@ -19,7 +19,7 @@ const colorStyles: Record<string, string> = {
 };
 
 export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) {
-  const block = blocksByType[data.blockType];
+  const block = data.block ?? blocksByType[data.blockType];
   const colorClass = colorStyles[block?.color ?? "zinc"] ?? colorStyles.zinc;
   const isTerminal = block?.terminal;
 

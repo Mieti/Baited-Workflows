@@ -23,6 +23,8 @@ Rispetto alla review successiva sono stati aggiunti anche:
 - undo/history estratto in hook dedicato;
 - config ESLint flat e rimozione dipendenza inutilizzata `zod`;
 - test unitari backend per il validatore workflow.
+- catalogo blocchi spostato su entita' DB-backed con seed idempotente;
+- proiezione relazionale di nodi ed edge per ogni versione workflow.
 
 ## Stack
 
@@ -75,6 +77,7 @@ Baited-POC/
       services/blocks.py
       services/demo.py
       services/validation.py
+      services/workflow_graph.py
     tests/
       test_validation.py
     Dockerfile
@@ -191,11 +194,23 @@ La persistenza separa:
 - `definition`: significato del workflow;
 - `layout`: posizioni nodi e viewport canvas.
 
+Il POC mantiene due rappresentazioni complementari:
+
+- snapshot JSONB versionato, utile per export, rollback e preview payload;
+- proiezione relazionale di nodi/edge, utile per query, audit, analytics e futuro execution engine.
+
 Tabelle:
 
 - `workflows`;
 - `workflow_versions`;
 - `workflow_submissions`.
+- `workflow_block_definitions`;
+- `workflow_block_params`;
+- `workflow_block_param_options`;
+- `workflow_block_outputs`;
+- `workflow_block_output_rules`;
+- `workflow_version_nodes`;
+- `workflow_version_edges`.
 
 Campi JSONB:
 
@@ -203,8 +218,27 @@ Campi JSONB:
 - `workflow_versions.layout`;
 - `workflow_versions.validation_result`;
 - `workflow_submissions.payload`.
+- `workflow_version_nodes.params`.
 
-Questa scelta mantiene metadati relazionali e consente di salvare workflow flessibili senza normalizzare prematuramente ogni tipo di nodo.
+Questa scelta mantiene il payload flessibile, ma rende anche interrogabili blocchi, parametri, output, nodi ed edge senza dover parsare sempre JSONB.
+
+### Catalogo Blocchi DB-backed
+
+Il catalogo dei blocchi non e' piu' solo una duplicazione hardcoded frontend/backend:
+
+- `backend/app/services/blocks.py` contiene il seed iniziale del catalogo;
+- al boot del backend, `init_db()` crea le tabelle e seed-a i blocchi in modo idempotente;
+- `GET /api/workflow-blocks` legge i blocchi attivi da PostgreSQL;
+- il frontend usa il catalogo ricevuto dal backend per palette, inspector, branch disponibili e serializzazione;
+- il catalogo locale frontend rimane come fallback di rete, non come fonte di verita' primaria.
+
+Le branch delle condition sono persistite come output rules:
+
+```txt
+condition=email_opened -> opened, not_opened
+condition=link_clicked -> clicked, not_clicked
+condition=credentials_submitted -> credentials_submitted, not_submitted
+```
 
 ## API
 
@@ -217,6 +251,7 @@ GET  /api/workflows/demo
 GET  /api/workflows
 POST /api/workflows
 GET  /api/workflows/{workflow_id}
+GET  /api/workflows/{workflow_id}/graph
 PUT  /api/workflows/{workflow_id}
 POST /api/workflows/validate
 POST /api/workflows/{workflow_id}/validate
@@ -540,6 +575,32 @@ File:
 - `backend/app/services/blocks.py`
 - `backend/app/services/validation.py`
 
+### 15. Catalogo Blocchi E Grafo Normalizzati Su DB
+
+Implementazione aggiuntiva:
+
+- aggiunte entita' relazionali per block definitions, params, param options, outputs e output rules;
+- aggiunto seed idempotente del catalogo al boot backend;
+- `/api/workflow-blocks` legge il catalogo dal DB invece che restituire solo una costante Python;
+- aggiunte entita' `workflow_version_nodes` e `workflow_version_edges`;
+- ogni nuova versione workflow salva anche una proiezione normalizzata di nodi ed edge;
+- aggiunto endpoint `GET /api/workflows/{workflow_id}/graph`;
+- il frontend calcola `blocksByType` dai blocchi ricevuti dall'API;
+- branch, inspector e serializzazione usano il catalogo backend;
+- il catalogo frontend statico resta solo fallback in caso di API non raggiungibile.
+
+File:
+
+- `backend/app/models/workflow.py`
+- `backend/app/services/blocks.py`
+- `backend/app/services/workflow_graph.py`
+- `backend/app/api/routes.py`
+- `frontend/src/lib/workflow/branches.ts`
+- `frontend/src/lib/workflow/transform.ts`
+- `frontend/src/components/workflow/WorkflowBuilder.tsx`
+- `frontend/src/components/workflow/NodeInspector.tsx`
+- `frontend/src/components/workflow/nodes/WorkflowNode.tsx`
+
 ## Setup
 
 ### Docker
@@ -595,7 +656,7 @@ npm audit --omit=dev  0 vulnerabilities
 Backend:
 
 ```txt
-python -m pytest tests       OK, 3 passed
+python -m pytest tests       OK, 5 passed
 python -m ruff check app tests OK
 python -m compileall app tests OK
 python -m pip check          OK
@@ -607,6 +668,7 @@ API:
 GET  /api/health                       OK
 GET  /api/workflow-blocks              OK
 GET  /api/workflows/demo               OK
+GET  /api/workflows/{id}/graph         OK
 POST /api/workflows/{id}/validate      OK
 OPTIONS CORS da 127.0.0.1:3000         OK
 GET  Render /api/health                OK
@@ -638,7 +700,7 @@ Vercel production page                  OK
 - Non c'e' redo.
 - Non c'e' conferma prima della cancellazione nodo/edge.
 - Il versioning crea ancora una nuova versione su ogni `PUT`, anche se il payload e' identico.
-- Non c'e' ancora Alembic: i vincoli aggiunti ai modelli valgono automaticamente sui DB creati da zero, ma non migrano tabelle gia' esistenti.
+- Non c'e' ancora Alembic: le nuove tabelle vengono create da `create_all`, ma modifiche future a tabelle gia' esistenti richiederanno migrazioni vere.
 - Non ci sono ancora test end-to-end browser automatizzati.
 
 ## Prossimi Step Consigliati

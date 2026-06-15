@@ -8,19 +8,25 @@ from app.schemas.workflow import (
     WorkflowDefinition,
     WorkflowNode,
 )
-from app.services.blocks import BLOCKS_BY_TYPE
+from app.services.blocks import get_static_block_catalog
 
 
-TERMINAL_NODE_TYPES = {
-    block_type
-    for block_type, block in BLOCKS_BY_TYPE.items()
-    if block.get("terminal") is True
-}
+def _blocks_by_type(block_catalog: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {block["type"]: block for block in block_catalog}
 
 
-def validate_workflow(definition: WorkflowDefinition) -> ValidationResult:
+def validate_workflow(
+    definition: WorkflowDefinition,
+    block_catalog: list[dict[str, Any]] | None = None,
+) -> ValidationResult:
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
+    blocks_by_type = _blocks_by_type(block_catalog or get_static_block_catalog())
+    terminal_node_types = {
+        block_type
+        for block_type, block in blocks_by_type.items()
+        if block.get("terminal") is True
+    }
 
     nodes = definition.nodes
     edges = definition.edges
@@ -45,7 +51,7 @@ def validate_workflow(definition: WorkflowDefinition) -> ValidationResult:
             )
         )
 
-    unknown_nodes = [node for node in nodes if node.type not in BLOCKS_BY_TYPE]
+    unknown_nodes = [node for node in nodes if node.type not in blocks_by_type]
     for node in unknown_nodes:
         errors.append(
             ValidationIssue(
@@ -64,7 +70,7 @@ def validate_workflow(definition: WorkflowDefinition) -> ValidationResult:
             )
         )
 
-    terminal_nodes = [node for node in nodes if node.type in TERMINAL_NODE_TYPES]
+    terminal_nodes = [node for node in nodes if node.type in terminal_node_types]
     if not terminal_nodes:
         errors.append(
             ValidationIssue(
@@ -102,8 +108,8 @@ def validate_workflow(definition: WorkflowDefinition) -> ValidationResult:
         edge_branches_by_source[edge.source].append(edge.branch)
 
         source_node = nodes_by_id[edge.source]
-        block = BLOCKS_BY_TYPE.get(source_node.type, {})
-        allowed_branches = set(_allowed_branches_for_node(source_node))
+        block = blocks_by_type.get(source_node.type, {})
+        allowed_branches = set(_allowed_branches_for_node(source_node, blocks_by_type))
         if allowed_branches and edge.branch not in allowed_branches:
             errors.append(
                 ValidationIssue(
@@ -124,7 +130,7 @@ def validate_workflow(definition: WorkflowDefinition) -> ValidationResult:
             )
 
     for node in nodes:
-        block = BLOCKS_BY_TYPE.get(node.type)
+        block = blocks_by_type.get(node.type)
         if not block:
             continue
 
@@ -157,7 +163,7 @@ def validate_workflow(definition: WorkflowDefinition) -> ValidationResult:
             )
 
         if node.type == "condition":
-            allowed_branches = _allowed_branches_for_node(node)
+            allowed_branches = _allowed_branches_for_node(node, blocks_by_type)
             missing_branches = [
                 branch for branch in allowed_branches if branch not in branch_names
             ]
@@ -257,8 +263,11 @@ def _validate_param_value(
     return None
 
 
-def _allowed_branches_for_node(node: WorkflowNode) -> list[str]:
-    block = BLOCKS_BY_TYPE.get(node.type, {})
+def _allowed_branches_for_node(
+    node: WorkflowNode,
+    blocks_by_type: dict[str, dict[str, Any]],
+) -> list[str]:
+    block = blocks_by_type.get(node.type, {})
     branch_rule = block.get("branchRule")
     if branch_rule:
         value = node.params.get(branch_rule["param"])

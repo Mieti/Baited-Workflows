@@ -3,8 +3,7 @@
 import { GitBranch, MousePointer2, Settings2, Trash2 } from "lucide-react";
 
 import { NodeIcon } from "@/components/workflow/NodeIcon";
-import { getAllowedBranchesForNode } from "@/lib/workflow/branches";
-import { blocksByType } from "@/lib/workflow/catalog";
+import { getAllowedBranchesForNode, type BlockLookup } from "@/lib/workflow/branches";
 import type { ValidationIssue, WorkflowCanvasEdge, WorkflowCanvasNode } from "@/lib/workflow/types";
 
 type NodeInspectorProps = {
@@ -16,6 +15,7 @@ type NodeInspectorProps = {
     nodes: number;
     edges: number;
   };
+  blocksByType: BlockLookup;
   issues: ValidationIssue[];
   onUpdateNode: (
     nodeId: string,
@@ -33,6 +33,7 @@ export function NodeInspector({
   edgeSourceNode,
   edgeTargetNode,
   selectionSummary,
+  blocksByType,
   issues,
   onUpdateNode,
   onDeleteNode,
@@ -42,7 +43,7 @@ export function NodeInspector({
 }: NodeInspectorProps) {
   if (edge) {
     const currentBranch = String(edge.data?.branch ?? edge.label ?? "success");
-    const allowedBranches = getAllowedBranchesForNode(edgeSourceNode);
+    const allowedBranches = getAllowedBranchesForNode(edgeSourceNode, blocksByType);
     const branchOptions = allowedBranches.includes(currentBranch)
       ? allowedBranches
       : [currentBranch, ...allowedBranches];

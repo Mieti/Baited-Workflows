@@ -179,6 +179,7 @@ Baited-POC/
       services/blocks.py
       services/demo.py
       services/validation.py
+      services/workflow_graph.py
     tests/
       test_validation.py
     Dockerfile
@@ -281,13 +282,14 @@ Key files:
 - `backend/app/services/blocks.py`
 - `backend/app/services/demo.py`
 - `backend/app/services/validation.py`
+- `backend/app/services/workflow_graph.py`
 
 Responsibilities:
 
 - FastAPI exposes REST endpoints.
 - Pydantic validates API payload shapes.
 - Custom validator checks workflow logic.
-- SQLModel/SQLAlchemy persist workflow metadata and JSONB payloads.
+- SQLModel/SQLAlchemy persist workflow metadata, DB-backed block catalog entities, workflow graph projections, and JSONB payload snapshots.
 - Psycopg 3 is the PostgreSQL driver.
 
 ## Data Model
@@ -315,6 +317,13 @@ Tables:
 - `workflows`
 - `workflow_versions`
 - `workflow_submissions`
+- `workflow_block_definitions`
+- `workflow_block_params`
+- `workflow_block_param_options`
+- `workflow_block_outputs`
+- `workflow_block_output_rules`
+- `workflow_version_nodes`
+- `workflow_version_edges`
 
 JSONB fields:
 
@@ -322,6 +331,15 @@ JSONB fields:
 - `workflow_versions.layout`
 - `workflow_versions.validation_result`
 - `workflow_submissions.payload`
+- `workflow_version_nodes.params`
+
+Catalog model:
+
+- block definitions are seeded into PostgreSQL at backend startup from `backend/app/services/blocks.py`;
+- `/api/workflow-blocks` reads the active block catalog from the DB;
+- frontend branch logic and node rendering use the API-provided catalog, with the local catalog kept only as network fallback;
+- condition branches are modeled as output rules keyed by parameter value;
+- workflow versions keep a JSONB snapshot and also store normalized node/edge projections for queryability.
 
 ## Available Workflow Blocks
 
@@ -379,6 +397,7 @@ GET  /api/workflows/demo
 GET  /api/workflows
 POST /api/workflows
 GET  /api/workflows/{workflow_id}
+GET  /api/workflows/{workflow_id}/graph
 PUT  /api/workflows/{workflow_id}
 POST /api/workflows/validate
 POST /api/workflows/{workflow_id}/validate
@@ -490,13 +509,17 @@ Fixed:
 - optional saved-workflow validation payload check made explicit with `is not None`.
 - condition `defaultBranch` removed in favor of condition-specific outcome branches;
 - select placeholders are disabled and new select params start empty until explicitly chosen.
+- workflow block catalog moved to DB-backed entities with idempotent startup seed;
+- workflow versions now also persist normalized node and edge projections;
+- frontend workflow utilities now consume the API-provided block catalog instead of relying on static branch metadata.
 
 ## Guidance For Future Changes
 
 When modifying the workflow model:
 
-- update both frontend and backend catalogs if block shape changes;
-- update branch rules in both catalogs when condition outcomes change;
+- update the backend seed catalog and DB-backed block entities in `backend/app/services/blocks.py`;
+- keep the frontend local catalog only as an emergency fallback, not as source of truth;
+- update output rules when condition outcomes change;
 - update `frontend/src/lib/workflow/types.ts`;
 - update `backend/app/schemas/workflow.py`;
 - update frontend and backend validation rules;

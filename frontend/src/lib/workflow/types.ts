@@ -14,12 +14,14 @@ export type BlockParam = {
 
 export type BlockDefinition = {
   type: string;
+  version?: number;
   category: string;
   label: string;
   description: string;
   icon: string;
   color: string;
   params: BlockParam[];
+  outputs?: { key: string; label: string }[];
   allowedBranches?: string[];
   branchRule?: {
     param: string;
@@ -93,10 +95,36 @@ export type WorkflowRead = {
   updatedAt: string;
 };
 
+export type WorkflowGraphNodeRead = {
+  id: string;
+  nodeKey: string;
+  blockType: string;
+  blockVersion: number;
+  label: string;
+  params: Record<string, string | number | boolean | null>;
+};
+
+export type WorkflowGraphEdgeRead = {
+  id: string;
+  edgeKey: string;
+  source: string;
+  target: string;
+  sourceOutput: string;
+};
+
+export type WorkflowGraphRead = {
+  workflowId: string;
+  versionId: string;
+  version: number;
+  nodes: WorkflowGraphNodeRead[];
+  edges: WorkflowGraphEdgeRead[];
+};
+
 export type WorkflowNodeData = {
   blockType: string;
   label: string;
   params: Record<string, string | number | boolean | null>;
+  block?: BlockDefinition;
   status?: "valid" | "warning" | "error" | "idle";
 };
 

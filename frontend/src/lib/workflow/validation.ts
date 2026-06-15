@@ -1,8 +1,12 @@
 import { getAllowedBranchesForNode } from "./branches";
-import { blocksByType } from "./catalog";
+import { blocksByType as fallbackBlocksByType } from "./catalog";
+import type { BlockLookup } from "./branches";
 import type { BlockParam, ValidationIssue, ValidationResult, WorkflowPayload } from "./types";
 
-export function validateWorkflowClient(payload: WorkflowPayload): ValidationResult {
+export function validateWorkflowClient(
+  payload: WorkflowPayload,
+  blocksByType: BlockLookup = fallbackBlocksByType
+): ValidationResult {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
   const { nodes, edges } = payload.definition;
@@ -78,7 +82,7 @@ export function validateWorkflowClient(payload: WorkflowPayload): ValidationResu
 
     const sourceNode = nodesById.get(edge.source);
     const sourceBlock = sourceNode ? blocksByType[sourceNode.type] : null;
-    const allowedBranches = getAllowedBranchesForNode(sourceNode);
+    const allowedBranches = getAllowedBranchesForNode(sourceNode, blocksByType);
 
     if (allowedBranches.length && !allowedBranches.includes(edge.branch)) {
       errors.push({
@@ -133,7 +137,7 @@ export function validateWorkflowClient(payload: WorkflowPayload): ValidationResu
     }
 
     if (node.type === "condition") {
-      const allowedBranches = getAllowedBranchesForNode(node);
+      const allowedBranches = getAllowedBranchesForNode(node, blocksByType);
       const missingBranches = allowedBranches.filter((branch) => !branches.includes(branch));
       if (allowedBranches.length && missingBranches.length) {
         errors.push({

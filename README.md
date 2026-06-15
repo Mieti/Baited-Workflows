@@ -6,6 +6,8 @@ POC fullstack per un editor visuale di workflow orientato a campagne di security
 
 - Workflow builder visuale con canvas, nodi custom, branching, selezione multipla, undo e inspector laterale.
 - Persistenza reale su PostgreSQL.
+- Catalogo blocchi DB-backed con parametri, output e regole di branching esposti via API.
+- Proiezione relazionale di nodi ed edge per ogni versione workflow, oltre al payload JSONB.
 - API FastAPI per CRUD, validazione DAG e submit mockato.
 - Separazione tra `definition` del workflow e `layout` del canvas.
 - Payload JSON leggibile per mostrare cosa verrebbe salvato/eseguito.
@@ -103,6 +105,16 @@ cd backend
 7. Clicca `Validate`.
 8. Controlla tab `Payload`.
 9. Clicca `Save` e poi `Submit mock`.
+
+## Modello dati
+
+Il backend mantiene il payload workflow come snapshot JSONB versionato, ma ora persiste anche:
+
+- definizioni blocchi, parametri, opzioni, output e output rules;
+- nodi normalizzati per versione workflow;
+- edge normalizzati con `sourceOutput`.
+
+`GET /api/workflow-blocks` legge il catalogo dal database. Il frontend usa quel catalogo per palette, inspector, branch disponibili e serializzazione.
 
 ## Scope intenzionale
 

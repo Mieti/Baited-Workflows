@@ -50,7 +50,7 @@ import {
   validateWorkflow
 } from "@/lib/api/client";
 import { getNextAvailableBranch } from "@/lib/workflow/branches";
-import { blockCatalog, blocksByType } from "@/lib/workflow/catalog";
+import { blockCatalog, createBlocksByType } from "@/lib/workflow/catalog";
 import { branchColor, canvasToPayload, payloadToCanvas } from "@/lib/workflow/transform";
 import type {
   BlockDefinition,
@@ -108,6 +108,8 @@ function WorkflowBuilderInner() {
     WorkflowCanvasEdge
   >();
 
+  const blocksByType = useMemo(() => createBlocksByType(blocks), [blocks]);
+
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) ?? null,
     [nodes, selectedNodeId]
@@ -155,13 +157,17 @@ function WorkflowBuilderInner() {
         ...node,
         data: {
           ...node.data,
+          block: blocksByType[node.data.blockType],
           status
         }
       };
     });
-  }, [nodes, validation]);
+  }, [blocksByType, nodes, validation]);
 
-  const payload = useMemo(() => canvasToPayload(nodes, edges, viewport), [edges, nodes, viewport]);
+  const payload = useMemo(
+    () => canvasToPayload(nodes, edges, viewport, blocksByType),
+    [blocksByType, edges, nodes, viewport]
+  );
 
   const createHistorySnapshot = useCallback(
     (): WorkflowHistorySnapshot => ({
@@ -237,10 +243,14 @@ function WorkflowBuilderInner() {
         const [remoteBlocks, workflow] = await Promise.all([getWorkflowBlocks(), getDemoWorkflow()]);
         if (isCancelled) return;
 
-        const canvas = payloadToCanvas({
-          definition: workflow.definition,
-          layout: workflow.layout
-        });
+        const remoteBlocksByType = createBlocksByType(remoteBlocks);
+        const canvas = payloadToCanvas(
+          {
+            definition: workflow.definition,
+            layout: workflow.layout
+          },
+          remoteBlocksByType
+        );
         setBlocks(remoteBlocks);
         setWorkflowId(workflow.id);
         setWorkflowName(workflow.name);
@@ -400,7 +410,7 @@ function WorkflowBuilderInner() {
 
   const addBlock = useCallback(
     (blockType: string, position?: { x: number; y: number }) => {
-      const block = blocks.find((item) => item.type === blockType) ?? blocksByType[blockType];
+      const block = blocksByType[blockType];
       if (!block) return;
 
       pushHistorySnapshot();
@@ -419,6 +429,7 @@ function WorkflowBuilderInner() {
           blockType,
           label: block.label,
           params,
+          block,
           status: "idle"
         }
       };
@@ -429,7 +440,7 @@ function WorkflowBuilderInner() {
       setSelection({ nodeIds: [node.id], edgeIds: [] });
       markWorkflowEdited();
     },
-    [blocks, markWorkflowEdited, nodes.length, pushHistorySnapshot, setNodes]
+    [blocksByType, markWorkflowEdited, nodes.length, pushHistorySnapshot, setNodes]
   );
 
   const onConnect = useCallback(
@@ -454,7 +465,8 @@ function WorkflowBuilderInner() {
 
       const branch = getNextAvailableBranch(
         sourceNode,
-        edges.filter((edge) => edge.source === connection.source)
+        edges.filter((edge) => edge.source === connection.source),
+        blocksByType
       );
       if (!branch) {
         const message = sourceBlock?.branchRule
@@ -486,7 +498,7 @@ function WorkflowBuilderInner() {
       setSelection({ nodeIds: [], edgeIds: [edge.id] });
       markWorkflowEdited();
     },
-    [edges, markWorkflowEdited, nodes, pushHistorySnapshot, setEdges, showToast]
+    [blocksByType, edges, markWorkflowEdited, nodes, pushHistorySnapshot, setEdges, showToast]
   );
 
   const onDrop = useCallback(
@@ -990,6 +1002,7 @@ function WorkflowBuilderInner() {
           edgeSourceNode={selectedEdgeSourceNode}
           edgeTargetNode={selectedEdgeTargetNode}
           selectionSummary={selectionSummary}
+          blocksByType={blocksByType}
           issues={selectedIssues}
           onUpdateNode={updateNode}
           onDeleteNode={deleteNode}

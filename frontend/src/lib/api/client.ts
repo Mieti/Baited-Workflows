@@ -4,6 +4,7 @@ import type {
   BlockDefinition,
   SubmissionRead,
   ValidationResult,
+  WorkflowGraphRead,
   WorkflowPayload,
   WorkflowRead
 } from "@/lib/workflow/types";
@@ -81,6 +82,10 @@ export async function getDemoWorkflow(): Promise<WorkflowRead> {
       updatedAt: new Date().toISOString()
     };
   }
+}
+
+export async function getWorkflowGraph(workflowId: string): Promise<WorkflowGraphRead> {
+  return request<WorkflowGraphRead>(`/api/workflows/${workflowId}/graph`);
 }
 
 export async function saveWorkflow(
