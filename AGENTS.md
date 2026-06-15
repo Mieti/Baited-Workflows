@@ -219,6 +219,7 @@ Key files:
 - `frontend/src/components/workflow/BottomPanel.tsx`
 - `frontend/src/components/workflow/TopBar.tsx`
 - `frontend/src/components/workflow/useWorkflowHistory.ts`
+- `frontend/src/components/workflow/useWorkflowToasts.ts`
 - `frontend/src/components/workflow/nodes/WorkflowNode.tsx`
 
 Workflow utilities:
@@ -480,6 +481,9 @@ Fixed:
 - unused `zod` dependency removed;
 - backend package discovery fixed for dev installs;
 - backend validator unit tests added.
+- async toast state extracted from the main builder component;
+- initial workflow load keeps controls disabled until viewport restore and history readiness are complete;
+- optional saved-workflow validation payload check made explicit with `is not None`.
 
 ## Guidance For Future Changes
 

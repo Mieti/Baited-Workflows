@@ -154,7 +154,7 @@ def validate_saved_workflow(workflow_id: UUID, payload: WorkflowPayload | None =
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
 
-        if payload:
+        if payload is not None:
             return validate_workflow(payload.definition)
 
         latest = _latest_version(session, workflow.id)

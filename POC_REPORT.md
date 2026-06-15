@@ -85,6 +85,7 @@ Baited-POC/
       app/
       components/workflow/
         useWorkflowHistory.ts
+        useWorkflowToasts.ts
       lib/api/
       lib/workflow/
     Dockerfile
@@ -496,6 +497,21 @@ File:
 - `frontend/package.json`
 - `frontend/package-lock.json`
 - `backend/pyproject.toml`
+
+### 13. Review Finale Di Robustezza
+
+Fix:
+
+- gestione toast estratta in `useWorkflowToasts`, riducendo responsabilita' e dimensione del builder principale;
+- cleanup esplicito dei timer toast e dei timer usati durante il restore iniziale del viewport;
+- controlli toolbar mantenuti disabilitati finche' viewport e history non sono pronti;
+- check backend su payload opzionale reso esplicito con `is not None`.
+
+File:
+
+- `frontend/src/components/workflow/useWorkflowToasts.ts`
+- `frontend/src/components/workflow/WorkflowBuilder.tsx`
+- `backend/app/api/routes.py`
 
 ## Setup
 

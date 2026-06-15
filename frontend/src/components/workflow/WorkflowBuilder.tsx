@@ -29,12 +29,9 @@ import { BottomPanel } from "@/components/workflow/BottomPanel";
 import { NodeInspector } from "@/components/workflow/NodeInspector";
 import { NodePalette } from "@/components/workflow/NodePalette";
 import { TopBar } from "@/components/workflow/TopBar";
-import {
-  WorkflowToasts,
-  type WorkflowToast,
-  type WorkflowToastTone
-} from "@/components/workflow/WorkflowToasts";
+import { WorkflowToasts } from "@/components/workflow/WorkflowToasts";
 import { WorkflowNode } from "@/components/workflow/nodes/WorkflowNode";
+import { useWorkflowToasts } from "@/components/workflow/useWorkflowToasts";
 import {
   cloneSelection,
   cloneWorkflowEdges,
@@ -97,77 +94,18 @@ function WorkflowBuilderInner() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>("loading");
-  const [toasts, setToasts] = useState<WorkflowToast[]>([]);
   const [viewport, setViewportState] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const [bottomPanelHeight, setBottomPanelHeight] = useState(DEFAULT_BOTTOM_PANEL_HEIGHT);
   const [isResizingBottomPanel, setIsResizingBottomPanel] = useState(false);
   const workspaceColumnRef = useRef<HTMLDivElement | null>(null);
   const resizeStartRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const positionDragSnapshotRef = useRef<WorkflowHistorySnapshot | null>(null);
-  const toastTimersRef = useRef<Map<string, number>>(new Map());
   const hasLoadedWorkflowRef = useRef(false);
+  const { dismissToast, showToast, toasts } = useWorkflowToasts();
   const { fitView, screenToFlowPosition, setViewport } = useReactFlow<
     WorkflowCanvasNode,
     WorkflowCanvasEdge
   >();
-
-  const dismissToast = useCallback((id: string) => {
-    const timer = toastTimersRef.current.get(id);
-    if (timer) {
-      window.clearTimeout(timer);
-      toastTimersRef.current.delete(id);
-    }
-    setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
-  }, []);
-
-  const showToast = useCallback(
-    ({
-      id,
-      message,
-      tone,
-      busy = false,
-      timeout
-    }: {
-      id?: string;
-      message: string;
-      tone: WorkflowToastTone;
-      busy?: boolean;
-      timeout?: number;
-    }) => {
-      const toastId = id ?? `toast-${crypto.randomUUID?.() ?? Date.now()}`;
-      const existingTimer = toastTimersRef.current.get(toastId);
-      if (existingTimer) {
-        window.clearTimeout(existingTimer);
-        toastTimersRef.current.delete(toastId);
-      }
-
-      setToasts((currentToasts) => {
-        const nextToast: WorkflowToast = { id: toastId, message, tone, busy };
-        const nextToasts = [
-          ...currentToasts.filter((toast) => toast.id !== toastId),
-          nextToast
-        ];
-        return nextToasts.slice(-4);
-      });
-
-      const resolvedTimeout = timeout ?? (busy ? 0 : 4200);
-      if (resolvedTimeout > 0) {
-        const timer = window.setTimeout(() => dismissToast(toastId), resolvedTimeout);
-        toastTimersRef.current.set(toastId, timer);
-      }
-
-      return toastId;
-    },
-    [dismissToast]
-  );
-
-  useEffect(
-    () => () => {
-      toastTimersRef.current.forEach((timer) => window.clearTimeout(timer));
-      toastTimersRef.current.clear();
-    },
-    []
-  );
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) ?? null,
@@ -284,6 +222,10 @@ function WorkflowBuilderInner() {
     });
 
   useEffect(() => {
+    let isCancelled = false;
+    let viewportTimer: number | undefined;
+    let readyTimer: number | undefined;
+
     async function load() {
       hasLoadedWorkflowRef.current = false;
       setPendingAction("loading");
@@ -299,6 +241,8 @@ function WorkflowBuilderInner() {
 
       try {
         const [remoteBlocks, workflow] = await Promise.all([getWorkflowBlocks(), getDemoWorkflow()]);
+        if (isCancelled) return;
+
         const canvas = payloadToCanvas({
           definition: workflow.definition,
           layout: workflow.layout
@@ -312,10 +256,15 @@ function WorkflowBuilderInner() {
         setViewportState(workflow.layout.viewport);
         setNodes(canvas.nodes);
         setEdges(canvas.edges);
-        window.setTimeout(() => {
+        viewportTimer = window.setTimeout(() => {
+          if (isCancelled) return;
+
           void setViewport(workflow.layout.viewport, { duration: 0 });
-          window.setTimeout(() => {
+          readyTimer = window.setTimeout(() => {
+            if (isCancelled) return;
+
             hasLoadedWorkflowRef.current = true;
+            setPendingAction(null);
           }, 0);
         }, 80);
         setNotice("Workflow loaded.");
@@ -325,6 +274,8 @@ function WorkflowBuilderInner() {
           tone: "success"
         });
       } catch (error) {
+        if (isCancelled) return;
+
         const message = getApiErrorMessage(error, "Workflow loading failed.");
         setNotice(message);
         showToast({
@@ -334,11 +285,16 @@ function WorkflowBuilderInner() {
           timeout: 6500
         });
         hasLoadedWorkflowRef.current = true;
-      } finally {
         setPendingAction(null);
       }
     }
     void load();
+
+    return () => {
+      isCancelled = true;
+      if (viewportTimer) window.clearTimeout(viewportTimer);
+      if (readyTimer) window.clearTimeout(readyTimer);
+    };
   }, [resetHistory, resetTransientHistory, setEdges, setNodes, setViewport, showToast]);
 
   const markWorkflowEdited = useCallback(
