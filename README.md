@@ -16,6 +16,15 @@ POC fullstack per un editor visuale di workflow orientato a campagne di security
 - Backend: FastAPI, SQLModel, PostgreSQL.
 - Dev environment: Docker Compose.
 
+## Deploy pubblico
+
+- Frontend Vercel: https://baited-workflows.vercel.app/workflows/demo
+- Backend Render: https://baited-workflows-backend.onrender.com
+- Backend health: https://baited-workflows-backend.onrender.com/api/health
+- Repository GitHub: https://github.com/Mieti/Baited-Workflows
+
+Il database del deploy e' un progetto Supabase PostgreSQL collegato al backend tramite Shared Pooler.
+
 ## Avvio con Docker
 
 ```bash
@@ -52,6 +61,7 @@ Variabili utili:
 ```env
 DATABASE_URL=postgresql+psycopg://baited:baited@localhost:5432/baited_workflows
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ORIGIN_REGEX=
 ```
 
 Frontend:

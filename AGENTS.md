@@ -42,6 +42,7 @@ Infra/dev:
 - Docker Compose file is present.
 - Manual local setup is supported.
 - PostgreSQL is expected at `localhost:5432` unless overridden.
+- Public POC deployment uses Vercel for the frontend, Render for the backend, and Supabase PostgreSQL via Shared Pooler.
 
 ## Important URLs
 
@@ -49,18 +50,27 @@ Frontend:
 
 ```txt
 http://127.0.0.1:3000/workflows/demo
+https://baited-workflows.vercel.app/workflows/demo
 ```
 
 Backend docs:
 
 ```txt
 http://127.0.0.1:8000/docs
+https://baited-workflows-backend.onrender.com/docs
 ```
 
 Backend health:
 
 ```txt
 http://127.0.0.1:8000/api/health
+https://baited-workflows-backend.onrender.com/api/health
+```
+
+GitHub:
+
+```txt
+https://github.com/Mieti/Baited-Workflows
 ```
 
 ## Run Commands
@@ -130,7 +140,15 @@ The `.env.example` file documents:
 ```env
 DATABASE_URL=postgresql+psycopg://baited:baited@localhost:5432/baited_workflows
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ORIGIN_REGEX=
 NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+Production deployment uses:
+
+```txt
+NEXT_PUBLIC_API_URL=https://baited-workflows-backend.onrender.com
+CORS_ORIGIN_REGEX=https://.*\.vercel\.app
 ```
 
 ## Docker

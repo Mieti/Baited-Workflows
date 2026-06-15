@@ -50,6 +50,17 @@ Rispetto alla review successiva sono stati aggiunti anche:
 - Docker Compose previsto per ambiente completo;
 - avvio manuale supportato con Python virtualenv e Postgres locale.
 
+### Deploy Pubblico
+
+- Repository GitHub: https://github.com/Mieti/Baited-Workflows
+- Frontend Vercel: https://baited-workflows.vercel.app/workflows/demo
+- Backend Render: https://baited-workflows-backend.onrender.com
+- Backend health: https://baited-workflows-backend.onrender.com/api/health
+- Database: Supabase PostgreSQL tramite Shared Pooler.
+
+Il frontend usa `NEXT_PUBLIC_API_URL=https://baited-workflows-backend.onrender.com`.
+Il backend usa `DATABASE_URL` verso Supabase e accetta domini Vercel tramite `CORS_ORIGIN_REGEX`.
+
 ## Struttura Del Progetto
 
 ```txt
@@ -553,6 +564,9 @@ GET  /api/workflow-blocks              OK
 GET  /api/workflows/demo               OK
 POST /api/workflows/{id}/validate      OK
 OPTIONS CORS da 127.0.0.1:3000         OK
+GET  Render /api/health                OK
+GET  Render /api/workflows/demo        OK
+OPTIONS CORS da Vercel production      OK
 ```
 
 Browser/UI:
@@ -566,6 +580,7 @@ Cancellazione bulk con Delete           OK
 Undo Ctrl+Z / toolbar                   OK
 Validazione da UI                       OK
 Console browser                         0 errori
+Vercel production page                  OK
 ```
 
 ## Limiti Residui Accettati Per POC
