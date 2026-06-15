@@ -179,7 +179,6 @@ Baited-POC/
       services/blocks.py
       services/demo.py
       services/validation.py
-      services/workflow_graph.py
     tests/
       test_validation.py
     Dockerfile
@@ -281,14 +280,13 @@ Key files:
 - `backend/app/services/blocks.py`
 - `backend/app/services/demo.py`
 - `backend/app/services/validation.py`
-- `backend/app/services/workflow_graph.py`
 
 Responsibilities:
 
 - FastAPI exposes REST endpoints.
 - Pydantic validates API payload shapes.
 - Custom validator checks workflow logic.
-- SQLModel/SQLAlchemy persist workflow metadata, DB-backed block catalog entities, workflow graph projections, and JSONB payload snapshots.
+- SQLModel/SQLAlchemy persist workflow metadata, DB-backed block catalog entities, and JSONB payload snapshots.
 - Psycopg 3 is the PostgreSQL driver.
 
 ## Data Model
@@ -321,8 +319,6 @@ Tables:
 - `workflow_block_param_options`
 - `workflow_block_outputs`
 - `workflow_block_output_rules`
-- `workflow_version_nodes`
-- `workflow_version_edges`
 
 JSONB fields:
 
@@ -330,7 +326,6 @@ JSONB fields:
 - `workflow_versions.layout`
 - `workflow_versions.validation_result`
 - `workflow_submissions.payload`
-- `workflow_version_nodes.params`
 
 Catalog model:
 
@@ -339,7 +334,7 @@ Catalog model:
 - frontend branch logic and node rendering use only the API-provided catalog at runtime;
 - the frontend has no runtime catalog/demo/validation fallback; if the API is unavailable, the UI shows an explicit error and disables workflow actions;
 - condition branches are modeled as output rules keyed by parameter value;
-- workflow versions keep a JSONB snapshot and also store normalized node/edge projections for queryability.
+- workflow versions keep a JSONB snapshot only; the earlier normalized node/edge projection was removed to keep the POC lean.
 
 ## Available Workflow Blocks
 
@@ -397,7 +392,6 @@ GET  /api/workflows/demo
 GET  /api/workflows
 POST /api/workflows
 GET  /api/workflows/{workflow_id}
-GET  /api/workflows/{workflow_id}/graph
 PUT  /api/workflows/{workflow_id}
 POST /api/workflows/validate
 POST /api/workflows/{workflow_id}/validate
@@ -510,7 +504,7 @@ Fixed:
 - condition `defaultBranch` removed in favor of condition-specific outcome branches;
 - select placeholders are disabled and new select params start empty until explicitly chosen.
 - workflow block catalog moved to DB-backed entities with idempotent startup seed;
-- workflow versions now also persist normalized node and edge projections;
+- normalized workflow node/edge projections removed as unnecessary POC redundancy;
 - frontend workflow utilities now consume the API-provided block catalog instead of relying on static branch metadata.
 - frontend runtime fallback catalog, demo workflow, and local validator removed.
 

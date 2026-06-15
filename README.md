@@ -108,11 +108,10 @@ cd backend
 
 ## Modello dati
 
-Il backend mantiene il payload workflow come snapshot JSONB versionato, ma ora persiste anche:
+Il backend mantiene il payload workflow come snapshot JSONB versionato e persiste il catalogo blocchi in tabelle dedicate:
 
 - definizioni blocchi, parametri, opzioni, output e output rules;
-- nodi normalizzati per versione workflow;
-- edge normalizzati con `sourceOutput`.
+- workflow metadata, versioni e submission mockate.
 
 `GET /api/workflow-blocks` legge il catalogo dal database. Il frontend usa quel catalogo per palette, inspector, branch disponibili e serializzazione.
 

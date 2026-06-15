@@ -95,31 +95,6 @@ export type WorkflowRead = {
   updatedAt: string;
 };
 
-export type WorkflowGraphNodeRead = {
-  id: string;
-  nodeKey: string;
-  blockType: string;
-  blockVersion: number;
-  label: string;
-  params: Record<string, string | number | boolean | null>;
-};
-
-export type WorkflowGraphEdgeRead = {
-  id: string;
-  edgeKey: string;
-  source: string;
-  target: string;
-  sourceOutput: string;
-};
-
-export type WorkflowGraphRead = {
-  workflowId: string;
-  versionId: string;
-  version: number;
-  nodes: WorkflowGraphNodeRead[];
-  edges: WorkflowGraphEdgeRead[];
-};
-
 export type WorkflowNodeData = {
   blockType: string;
   label: string;

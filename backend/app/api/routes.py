@@ -9,15 +9,12 @@ from app.models.workflow import (
     Workflow,
     WorkflowSubmission,
     WorkflowVersion,
-    WorkflowVersionEdge,
-    WorkflowVersionNode,
     utcnow,
 )
 from app.schemas.workflow import (
     SubmissionRead,
     ValidationResult,
     WorkflowCreate,
-    WorkflowGraphRead,
     WorkflowPayload,
     WorkflowRead,
     WorkflowUpdate,
@@ -31,10 +28,6 @@ from app.services.demo import (
     DEMO_WORKFLOW_NAME,
 )
 from app.services.validation import validate_workflow
-from app.services.workflow_graph import (
-    ensure_workflow_graph_projection,
-    replace_workflow_graph_projection,
-)
 
 router = APIRouter(prefix="/api")
 
@@ -91,8 +84,6 @@ def get_demo_workflow() -> WorkflowRead:
         )
         session.add(workflow)
         session.add(version)
-        session.flush()
-        replace_workflow_graph_projection(session, version, DEMO_DEFINITION)
         session.commit()
         session.refresh(workflow)
         return _workflow_read(session, workflow)
@@ -120,8 +111,6 @@ def create_workflow(payload: WorkflowCreate) -> WorkflowRead:
         )
         session.add(workflow)
         session.add(version)
-        session.flush()
-        replace_workflow_graph_projection(session, version, payload.definition)
         session.commit()
         session.refresh(workflow)
         return _workflow_read(session, workflow)
@@ -134,59 +123,6 @@ def get_workflow(workflow_id: UUID) -> WorkflowRead:
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
         return _workflow_read(session, workflow)
-
-
-@router.get("/workflows/{workflow_id}/graph", response_model=WorkflowGraphRead)
-def get_workflow_graph(workflow_id: UUID) -> WorkflowGraphRead:
-    with Session(engine) as session:
-        workflow = session.get(Workflow, workflow_id)
-        if not workflow:
-            raise HTTPException(status_code=404, detail="Workflow not found")
-
-        latest = _latest_version(session, workflow.id)
-        if not latest:
-            raise HTTPException(status_code=404, detail="Workflow version not found")
-        ensure_workflow_graph_projection(session, latest, commit=True)
-
-        nodes = session.exec(
-            select(WorkflowVersionNode)
-            .where(WorkflowVersionNode.workflow_version_id == latest.id)
-            .order_by(WorkflowVersionNode.node_key)
-        ).all()
-        edges = session.exec(
-            select(WorkflowVersionEdge)
-            .where(WorkflowVersionEdge.workflow_version_id == latest.id)
-            .order_by(WorkflowVersionEdge.edge_key)
-        ).all()
-
-        return WorkflowGraphRead.model_validate(
-            {
-                "workflowId": workflow.id,
-                "versionId": latest.id,
-                "version": latest.version,
-                "nodes": [
-                    {
-                        "id": node.id,
-                        "nodeKey": node.node_key,
-                        "blockType": node.block_type_key,
-                        "blockVersion": node.block_version,
-                        "label": node.label,
-                        "params": node.params,
-                    }
-                    for node in nodes
-                ],
-                "edges": [
-                    {
-                        "id": edge.id,
-                        "edgeKey": edge.edge_key,
-                        "source": edge.source_node_key,
-                        "target": edge.target_node_key,
-                        "sourceOutput": edge.source_output_key,
-                    }
-                    for edge in edges
-                ],
-            }
-        )
 
 
 @router.put("/workflows/{workflow_id}", response_model=WorkflowRead)
@@ -216,8 +152,6 @@ def update_workflow(workflow_id: UUID, payload: WorkflowUpdate) -> WorkflowRead:
         )
         session.add(workflow)
         session.add(version)
-        session.flush()
-        replace_workflow_graph_projection(session, version, payload.definition)
         session.commit()
         session.refresh(workflow)
         return _workflow_read(session, workflow)
@@ -269,10 +203,6 @@ def submit_workflow(workflow_id: UUID, payload: WorkflowPayload) -> SubmissionRe
                 validation_result=validation.model_dump(by_alias=True),
             )
             session.add(latest)
-            session.flush()
-            replace_workflow_graph_projection(session, latest, payload.definition)
-        else:
-            ensure_workflow_graph_projection(session, latest)
 
         workflow.status = "submitted"
         workflow.updated_at = utcnow()
@@ -340,7 +270,6 @@ def _workflow_read(session: Session, workflow: Workflow) -> WorkflowRead:
     latest = _latest_version(session, workflow.id)
     if not latest:
         raise HTTPException(status_code=404, detail="Workflow version not found")
-    ensure_workflow_graph_projection(session, latest, commit=True)
 
     return WorkflowRead.model_validate(
         {

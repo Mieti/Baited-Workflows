@@ -24,7 +24,7 @@ Rispetto alla review successiva sono stati aggiunti anche:
 - config ESLint flat e rimozione dipendenza inutilizzata `zod`;
 - test unitari backend per il validatore workflow.
 - catalogo blocchi spostato su entita' DB-backed con seed idempotente;
-- proiezione relazionale di nodi ed edge per ogni versione workflow.
+- rimossa la proiezione relazionale di nodi/edge per mantenere il POC piu' snello;
 - fallback runtime frontend rimossi: catalogo, demo workflow e validazione vengono consumati dal backend.
 
 ## Stack
@@ -78,7 +78,6 @@ Baited-POC/
       services/blocks.py
       services/demo.py
       services/validation.py
-      services/workflow_graph.py
     tests/
       test_validation.py
     Dockerfile
@@ -195,10 +194,7 @@ La persistenza separa:
 - `definition`: significato del workflow;
 - `layout`: posizioni nodi e viewport canvas.
 
-Il POC mantiene due rappresentazioni complementari:
-
-- snapshot JSONB versionato, utile per export, rollback e preview payload;
-- proiezione relazionale di nodi/edge, utile per query, audit, analytics e futuro execution engine.
+Il POC mantiene il workflow come snapshot JSONB versionato. La precedente proiezione relazionale di nodi/edge e' stata rimossa per evitare ridondanza non necessaria in questa fase.
 
 Tabelle:
 
@@ -209,9 +205,7 @@ Tabelle:
 - `workflow_block_params`;
 - `workflow_block_param_options`;
 - `workflow_block_outputs`;
-- `workflow_block_output_rules`;
-- `workflow_version_nodes`;
-- `workflow_version_edges`.
+- `workflow_block_output_rules`.
 
 Campi JSONB:
 
@@ -219,9 +213,8 @@ Campi JSONB:
 - `workflow_versions.layout`;
 - `workflow_versions.validation_result`;
 - `workflow_submissions.payload`.
-- `workflow_version_nodes.params`.
 
-Questa scelta mantiene il payload flessibile, ma rende anche interrogabili blocchi, parametri, output, nodi ed edge senza dover parsare sempre JSONB.
+Questa scelta mantiene il payload flessibile e riduce la complessita' del POC. Il catalogo blocchi rimane relazionale per evitare hardcoding frontend e per gestire parametri, opzioni, output e regole in modo strutturato.
 
 ### Catalogo Blocchi DB-backed
 
@@ -252,7 +245,6 @@ GET  /api/workflows/demo
 GET  /api/workflows
 POST /api/workflows
 GET  /api/workflows/{workflow_id}
-GET  /api/workflows/{workflow_id}/graph
 PUT  /api/workflows/{workflow_id}
 POST /api/workflows/validate
 POST /api/workflows/{workflow_id}/validate
@@ -565,16 +557,16 @@ File:
 - `backend/app/services/blocks.py`
 - `backend/app/services/validation.py`
 
-### 15. Catalogo Blocchi E Grafo Normalizzati Su DB
+### 15. Catalogo Blocchi DB-backed E Rimozione Proiezioni Ridondanti
 
 Implementazione aggiuntiva:
 
 - aggiunte entita' relazionali per block definitions, params, param options, outputs e output rules;
 - aggiunto seed idempotente del catalogo al boot backend;
 - `/api/workflow-blocks` legge il catalogo dal DB invece che restituire solo una costante Python;
-- aggiunte entita' `workflow_version_nodes` e `workflow_version_edges`;
-- ogni nuova versione workflow salva anche una proiezione normalizzata di nodi ed edge;
-- aggiunto endpoint `GET /api/workflows/{workflow_id}/graph`;
+- rimosse le entita' ridondanti `workflow_version_nodes` e `workflow_version_edges`;
+- rimosso l'endpoint `GET /api/workflows/{workflow_id}/graph`;
+- aggiunta cleanup startup per droppare le due tabelle obsolete se presenti;
 - il frontend calcola `blocksByType` dai blocchi ricevuti dall'API;
 - branch, inspector e serializzazione usano il catalogo backend;
 - il catalogo frontend statico e' stato rimosso dal runtime;
@@ -584,7 +576,7 @@ File:
 
 - `backend/app/models/workflow.py`
 - `backend/app/services/blocks.py`
-- `backend/app/services/workflow_graph.py`
+- `backend/app/db/session.py`
 - `backend/app/api/routes.py`
 - `frontend/src/lib/workflow/block-utils.ts`
 - `frontend/src/lib/workflow/branches.ts`
@@ -660,7 +652,6 @@ API:
 GET  /api/health                       OK
 GET  /api/workflow-blocks              OK
 GET  /api/workflows/demo               OK
-GET  /api/workflows/{id}/graph         OK
 POST /api/workflows/{id}/validate      OK
 OPTIONS CORS da 127.0.0.1:3000         OK
 GET  Render /api/health                OK

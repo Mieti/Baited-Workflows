@@ -146,35 +146,6 @@ class WorkflowBlockOutputRule(SQLModel, table=True):
     sort_order: int = Field(default=0, index=True)
 
 
-class WorkflowVersionNode(SQLModel, table=True):
-    __tablename__ = "workflow_version_nodes"
-    __table_args__ = (
-        UniqueConstraint("workflow_version_id", "node_key", name="uq_workflow_version_node_key"),
-    )
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    workflow_version_id: UUID = Field(foreign_key="workflow_versions.id", index=True)
-    node_key: str = Field(max_length=160)
-    block_type_key: str = Field(index=True, max_length=80)
-    block_version: int = Field(default=1, index=True)
-    label: str = Field(max_length=160)
-    params: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
-
-
-class WorkflowVersionEdge(SQLModel, table=True):
-    __tablename__ = "workflow_version_edges"
-    __table_args__ = (
-        UniqueConstraint("workflow_version_id", "edge_key", name="uq_workflow_version_edge_key"),
-    )
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    workflow_version_id: UUID = Field(foreign_key="workflow_versions.id", index=True)
-    edge_key: str = Field(max_length=160)
-    source_node_key: str = Field(index=True, max_length=160)
-    target_node_key: str = Field(index=True, max_length=160)
-    source_output_key: str = Field(index=True, max_length=80)
-
-
 class WorkflowSubmission(SQLModel, table=True):
     __tablename__ = "workflow_submissions"
 

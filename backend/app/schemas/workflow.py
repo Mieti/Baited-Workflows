@@ -90,34 +90,3 @@ class SubmissionRead(BaseModel):
     created_at: datetime = Field(alias="createdAt")
 
     model_config = ConfigDict(populate_by_name=True)
-
-
-class WorkflowGraphNodeRead(BaseModel):
-    id: UUID
-    node_key: str = Field(alias="nodeKey")
-    block_type_key: str = Field(alias="blockType")
-    block_version: int = Field(alias="blockVersion")
-    label: str
-    params: dict[str, Any]
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class WorkflowGraphEdgeRead(BaseModel):
-    id: UUID
-    edge_key: str = Field(alias="edgeKey")
-    source_node_key: str = Field(alias="source")
-    target_node_key: str = Field(alias="target")
-    source_output_key: str = Field(alias="sourceOutput")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class WorkflowGraphRead(BaseModel):
-    workflow_id: UUID = Field(alias="workflowId")
-    version_id: UUID = Field(alias="versionId")
-    version: int
-    nodes: list[WorkflowGraphNodeRead]
-    edges: list[WorkflowGraphEdgeRead]
-
-    model_config = ConfigDict(populate_by_name=True)
