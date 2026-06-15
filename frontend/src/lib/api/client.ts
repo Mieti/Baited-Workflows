@@ -1,5 +1,3 @@
-import { demoWorkflowPayload } from "@/lib/workflow/demo";
-import { validateWorkflowClient } from "@/lib/workflow/validation";
 import type {
   BlockDefinition,
   SubmissionRead,
@@ -8,7 +6,6 @@ import type {
   WorkflowPayload,
   WorkflowRead
 } from "@/lib/workflow/types";
-import { blockCatalog } from "@/lib/workflow/catalog";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -19,7 +16,7 @@ type ApiOptions = {
 
 class ApiNetworkError extends Error {
   constructor(public originalError: unknown) {
-    super("FastAPI backend is unreachable. Local fallback data is being used where possible.");
+    super("FastAPI backend is unreachable. Workflow data must be loaded from the backend.");
     this.name = "ApiNetworkError";
   }
 }
@@ -56,32 +53,11 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
 }
 
 export async function getWorkflowBlocks(): Promise<BlockDefinition[]> {
-  try {
-    return await request<BlockDefinition[]>("/api/workflow-blocks");
-  } catch (error) {
-    if (!isNetworkError(error)) throw error;
-    return blockCatalog;
-  }
+  return request<BlockDefinition[]>("/api/workflow-blocks");
 }
 
 export async function getDemoWorkflow(): Promise<WorkflowRead> {
-  try {
-    return await request<WorkflowRead>("/api/workflows/demo");
-  } catch (error) {
-    if (!isNetworkError(error)) throw error;
-    return {
-      id: "local-demo",
-      name: "Baited demo workflow",
-      description: "Local fallback demo while the API is offline.",
-      status: "draft",
-      version: 1,
-      definition: demoWorkflowPayload.definition,
-      layout: demoWorkflowPayload.layout,
-      validationResult: validateWorkflowClient(demoWorkflowPayload),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-  }
+  return request<WorkflowRead>("/api/workflows/demo");
 }
 
 export async function getWorkflowGraph(workflowId: string): Promise<WorkflowGraphRead> {
@@ -89,12 +65,12 @@ export async function getWorkflowGraph(workflowId: string): Promise<WorkflowGrap
 }
 
 export async function saveWorkflow(
-  workflowId: string,
+  workflowId: string | null,
   name: string,
   description: string,
   payload: WorkflowPayload
 ): Promise<WorkflowRead> {
-  if (workflowId === "local-demo") {
+  if (!workflowId) {
     return request<WorkflowRead>("/api/workflows", {
       method: "POST",
       body: { name, description, ...payload }
@@ -108,31 +84,27 @@ export async function saveWorkflow(
 }
 
 export async function validateWorkflow(
-  workflowId: string,
+  workflowId: string | null,
   payload: WorkflowPayload
 ): Promise<ValidationResult> {
-  try {
-    if (workflowId === "local-demo") {
-      return await request<ValidationResult>("/api/workflows/validate", {
-        method: "POST",
-        body: payload
-      });
-    }
-    return await request<ValidationResult>(`/api/workflows/${workflowId}/validate`, {
+  if (!workflowId) {
+    return request<ValidationResult>("/api/workflows/validate", {
       method: "POST",
       body: payload
     });
-  } catch (error) {
-    if (!isNetworkError(error)) throw error;
-    return validateWorkflowClient(payload);
   }
+
+  return request<ValidationResult>(`/api/workflows/${workflowId}/validate`, {
+    method: "POST",
+    body: payload
+  });
 }
 
 export async function submitWorkflow(
-  workflowId: string,
+  workflowId: string | null,
   payload: WorkflowPayload
 ): Promise<SubmissionRead> {
-  if (workflowId === "local-demo") {
+  if (!workflowId) {
     throw new Error("Save the workflow once before submitting it.");
   }
   return request<SubmissionRead>(`/api/workflows/${workflowId}/submit`, {
@@ -143,10 +115,6 @@ export async function submitWorkflow(
 
 export function getApiErrorMessage(error: unknown, fallback = "API request failed.") {
   return error instanceof Error ? error.message : fallback;
-}
-
-function isNetworkError(error: unknown): error is ApiNetworkError {
-  return error instanceof ApiNetworkError;
 }
 
 async function readResponseBody(response: Response) {

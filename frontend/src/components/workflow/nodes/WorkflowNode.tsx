@@ -4,7 +4,6 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { AlertTriangle, Check, Circle } from "lucide-react";
 
 import { NodeIcon } from "@/components/workflow/NodeIcon";
-import { blocksByType } from "@/lib/workflow/catalog";
 import type { WorkflowCanvasNode } from "@/lib/workflow/types";
 
 const colorStyles: Record<string, string> = {
@@ -19,7 +18,7 @@ const colorStyles: Record<string, string> = {
 };
 
 export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) {
-  const block = data.block ?? blocksByType[data.blockType];
+  const block = data.block;
   const colorClass = colorStyles[block?.color ?? "zinc"] ?? colorStyles.zinc;
   const isTerminal = block?.terminal;
 

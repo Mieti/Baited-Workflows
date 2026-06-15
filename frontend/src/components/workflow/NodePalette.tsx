@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { NodeIcon } from "@/components/workflow/NodeIcon";
-import { groupedBlocks } from "@/lib/workflow/catalog";
+import { groupedBlocks } from "@/lib/workflow/block-utils";
 import type { BlockDefinition } from "@/lib/workflow/types";
 
 type NodePaletteProps = {

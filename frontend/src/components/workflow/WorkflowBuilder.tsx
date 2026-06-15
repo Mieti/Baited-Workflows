@@ -21,7 +21,7 @@ import {
   type OnSelectionChangeFunc,
   type Viewport
 } from "@xyflow/react";
-import { GripHorizontal, Loader2 } from "lucide-react";
+import { AlertTriangle, GripHorizontal, Loader2 } from "lucide-react";
 import type { DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -50,7 +50,7 @@ import {
   validateWorkflow
 } from "@/lib/api/client";
 import { getNextAvailableBranch } from "@/lib/workflow/branches";
-import { blockCatalog, createBlocksByType } from "@/lib/workflow/catalog";
+import { createBlocksByType } from "@/lib/workflow/block-utils";
 import { branchColor, canvasToPayload, payloadToCanvas } from "@/lib/workflow/transform";
 import type {
   BlockDefinition,
@@ -81,9 +81,9 @@ export function WorkflowBuilder() {
 function WorkflowBuilderInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowCanvasNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowCanvasEdge>([]);
-  const [blocks, setBlocks] = useState<BlockDefinition[]>(blockCatalog);
-  const [workflowId, setWorkflowId] = useState("local-demo");
-  const [workflowName, setWorkflowName] = useState("Baited demo workflow");
+  const [blocks, setBlocks] = useState<BlockDefinition[]>([]);
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
+  const [workflowName, setWorkflowName] = useState("Loading workflow");
   const [workflowDescription, setWorkflowDescription] = useState("");
   const [workflowStatus, setWorkflowStatus] = useState("draft");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -95,6 +95,7 @@ function WorkflowBuilderInner() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [viewport, setViewportState] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const [bottomPanelHeight, setBottomPanelHeight] = useState(DEFAULT_BOTTOM_PANEL_HEIGHT);
   const [isResizingBottomPanel, setIsResizingBottomPanel] = useState(false);
@@ -251,12 +252,18 @@ function WorkflowBuilderInner() {
           },
           remoteBlocksByType
         );
+        setLoadError(null);
         setBlocks(remoteBlocks);
         setWorkflowId(workflow.id);
         setWorkflowName(workflow.name);
         setWorkflowDescription(workflow.description);
         setWorkflowStatus(workflow.status);
         setValidation(workflow.validationResult);
+        setSubmission(null);
+        setSaveState("saved");
+        setSelectedNodeId(null);
+        setSelectedEdgeId(null);
+        setSelection({ nodeIds: [], edgeIds: [] });
         setViewportState(workflow.layout.viewport);
         setNodes(canvas.nodes);
         setEdges(canvas.edges);
@@ -276,6 +283,21 @@ function WorkflowBuilderInner() {
         if (isCancelled) return;
 
         const message = getApiErrorMessage(error, "Workflow loading failed.");
+        setLoadError(message);
+        setBlocks([]);
+        setWorkflowId(null);
+        setWorkflowName("Workflow unavailable");
+        setWorkflowDescription("");
+        setWorkflowStatus("draft");
+        setValidation(null);
+        setSubmission(null);
+        setViewportState({ x: 0, y: 0, zoom: 1 });
+        setNodes([]);
+        setEdges([]);
+        setSelectedNodeId(null);
+        setSelectedEdgeId(null);
+        setSelection({ nodeIds: [], edgeIds: [] });
+        setSaveState("error");
         setNotice(message);
         showToast({
           id: "workflow-load",
@@ -283,7 +305,7 @@ function WorkflowBuilderInner() {
           tone: "error",
           timeout: 6500
         });
-        hasLoadedWorkflowRef.current = true;
+        hasLoadedWorkflowRef.current = false;
         setPendingAction(null);
       }
     }
@@ -410,6 +432,8 @@ function WorkflowBuilderInner() {
 
   const addBlock = useCallback(
     (blockType: string, position?: { x: number; y: number }) => {
+      if (loadError) return;
+
       const block = blocksByType[blockType];
       if (!block) return;
 
@@ -440,11 +464,12 @@ function WorkflowBuilderInner() {
       setSelection({ nodeIds: [node.id], edgeIds: [] });
       markWorkflowEdited();
     },
-    [blocksByType, markWorkflowEdited, nodes.length, pushHistorySnapshot, setNodes]
+    [blocksByType, loadError, markWorkflowEdited, nodes.length, pushHistorySnapshot, setNodes]
   );
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (loadError) return;
       if (!connection.source || !connection.target) return;
       if (connection.source === connection.target) return;
 
@@ -498,7 +523,7 @@ function WorkflowBuilderInner() {
       setSelection({ nodeIds: [], edgeIds: [edge.id] });
       markWorkflowEdited();
     },
-    [blocksByType, edges, markWorkflowEdited, nodes, pushHistorySnapshot, setEdges, showToast]
+    [blocksByType, edges, loadError, markWorkflowEdited, nodes, pushHistorySnapshot, setEdges, showToast]
   );
 
   const onDrop = useCallback(
@@ -557,6 +582,31 @@ function WorkflowBuilderInner() {
   );
 
   const runValidation = useCallback(async ({ source = "manual" }: { source?: "manual" | "submit" } = {}) => {
+    if (loadError) {
+      const result: ValidationResult = {
+        valid: false,
+        errors: [
+          {
+            code: "backend_unavailable",
+            message: loadError
+          }
+        ],
+        warnings: []
+      };
+      setValidation(result);
+      setActiveTab("validation");
+      setNotice(loadError);
+      if (source === "manual") {
+        showToast({
+          id: "workflow-validation",
+          message: loadError,
+          tone: "error",
+          timeout: 6500
+        });
+      }
+      return result;
+    }
+
     if (pendingAction) {
       return (
         validation ?? {
@@ -616,10 +666,10 @@ function WorkflowBuilderInner() {
     }
     setPendingAction(null);
     return result;
-  }, [dismissToast, payload, pendingAction, showToast, validation, workflowId]);
+  }, [dismissToast, loadError, payload, pendingAction, showToast, validation, workflowId]);
 
   const handleSave = useCallback(async () => {
-    if (pendingAction) return;
+    if (pendingAction || loadError) return;
 
     setSaveState("saving");
     setPendingAction("saving");
@@ -656,13 +706,14 @@ function WorkflowBuilderInner() {
     payload,
     pendingAction,
     showToast,
+    loadError,
     workflowDescription,
     workflowId,
     workflowName
   ]);
 
   const handleSubmit = useCallback(async () => {
-    if (pendingAction) return;
+    if (pendingAction || loadError) return;
 
     dismissToast("workflow-validation");
     dismissToast("workflow-save");
@@ -707,7 +758,7 @@ function WorkflowBuilderInner() {
     } finally {
       setPendingAction(null);
     }
-  }, [dismissToast, payload, pendingAction, runValidation, showToast, workflowId]);
+  }, [dismissToast, loadError, payload, pendingAction, runValidation, showToast, workflowId]);
 
   const focusIssue = useCallback(
     (issue: ValidationIssue) => {
@@ -805,6 +856,7 @@ function WorkflowBuilderInner() {
   const isValidating = pendingAction === "validating";
   const isSaving = pendingAction === "saving";
   const isSubmitting = pendingAction === "submitting";
+  const isUnavailable = Boolean(loadError);
 
   return (
     <main className="flex h-screen min-h-[760px] flex-col overflow-hidden bg-canvas text-baited-ink">
@@ -817,6 +869,7 @@ function WorkflowBuilderInner() {
         isValidating={isValidating}
         isSaving={isSaving}
         isSubmitting={isSubmitting}
+        isUnavailable={isUnavailable}
         onNameChange={handleNameChange}
         onUndo={handleUndo}
         onValidate={runValidation}
@@ -834,6 +887,20 @@ function WorkflowBuilderInner() {
                 <div className="flex items-center gap-3 rounded-md border border-line bg-panel/95 px-4 py-3 text-sm font-semibold text-baited-ink shadow-node">
                   <Loader2 className="h-4 w-4 animate-spin text-baited-green" />
                   Loading workflow
+                </div>
+              </div>
+            ) : null}
+            {isUnavailable && !isWorkflowLoading ? (
+              <div className="absolute inset-0 z-20 grid place-items-center bg-canvas/80 backdrop-blur-[1px]">
+                <div className="max-w-md rounded-md border border-rose-500/40 bg-panel/95 p-4 text-sm text-zinc-300 shadow-node">
+                  <div className="flex items-center gap-2 font-semibold text-rose-100">
+                    <AlertTriangle className="h-4 w-4 text-rose-300" />
+                    Backend unavailable
+                  </div>
+                  <p className="mt-2 leading-6">{loadError}</p>
+                  <p className="mt-3 text-xs text-zinc-500">
+                    Start the FastAPI service or check the deployed API URL, then refresh the page.
+                  </p>
                 </div>
               </div>
             ) : null}
@@ -934,11 +1001,14 @@ function WorkflowBuilderInner() {
                 if (!hasLoadedWorkflowRef.current) return;
                 markWorkflowEdited({ semantic: false });
               }}
-              selectionOnDrag
+              selectionOnDrag={!isUnavailable}
               selectionMode={SelectionMode.Partial}
-              panOnDrag={[1, 2]}
+              panOnDrag={isUnavailable ? false : [1, 2]}
+              nodesDraggable={!isUnavailable}
+              nodesConnectable={!isUnavailable}
+              elementsSelectable={!isUnavailable}
               multiSelectionKeyCode={["Control", "Meta", "Shift"]}
-              deleteKeyCode={["Backspace", "Delete"]}
+              deleteKeyCode={isUnavailable ? null : ["Backspace", "Delete"]}
               fitView
               minZoom={0.25}
               maxZoom={1.4}

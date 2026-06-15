@@ -116,6 +116,8 @@ Il backend mantiene il payload workflow come snapshot JSONB versionato, ma ora p
 
 `GET /api/workflow-blocks` legge il catalogo dal database. Il frontend usa quel catalogo per palette, inspector, branch disponibili e serializzazione.
 
+Il frontend non contiene fallback runtime per catalogo, demo workflow o validazione: FastAPI e' la fonte di verita'. Se il backend non e' raggiungibile, la UI mostra un errore esplicito e blocca le azioni sul workflow.
+
 ## Scope intenzionale
 
 Il POC non include autenticazione, scheduler, invio reale di email/SMS/IM o un motore di esecuzione. La parte importante e' mostrare una UX solida per costruire, validare e persistere un DAG di automazione.

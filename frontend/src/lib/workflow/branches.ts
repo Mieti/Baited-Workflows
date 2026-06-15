@@ -1,12 +1,12 @@
-import { blocksByType as fallbackBlocksByType } from "./catalog";
+import type { BlockLookup } from "./block-utils";
 import type { BlockDefinition, WorkflowCanvasEdge, WorkflowCanvasNode, WorkflowNodeDefinition } from "./types";
 
 type BranchSource = WorkflowCanvasNode | WorkflowNodeDefinition;
-export type BlockLookup = Record<string, BlockDefinition | undefined>;
+export type { BlockLookup };
 
 export function getAllowedBranchesForNode(
   node: BranchSource | null | undefined,
-  blocksByType: BlockLookup = fallbackBlocksByType
+  blocksByType: BlockLookup
 ): string[] {
   if (!node) return [];
 
@@ -18,7 +18,7 @@ export function getAllowedBranchesForNode(
 export function getNextAvailableBranch(
   node: BranchSource | null | undefined,
   existingEdges: WorkflowCanvasEdge[],
-  blocksByType: BlockLookup = fallbackBlocksByType
+  blocksByType: BlockLookup
 ) {
   const used = new Set(existingEdges.map((edge) => String(edge.data?.branch ?? edge.label)));
   return getAllowedBranchesForNode(node, blocksByType).find((branch) => !used.has(branch)) ?? null;

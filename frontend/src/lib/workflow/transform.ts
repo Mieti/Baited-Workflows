@@ -7,12 +7,11 @@ import type {
   WorkflowLayout,
   WorkflowPayload
 } from "./types";
-import { blocksByType as fallbackBlocksByType } from "./catalog";
 import type { BlockLookup } from "./branches";
 
 export function payloadToCanvas(
   payload: WorkflowPayload,
-  blocksByType: BlockLookup = fallbackBlocksByType
+  blocksByType: BlockLookup
 ): {
   nodes: WorkflowCanvasNode[];
   edges: WorkflowCanvasEdge[];
@@ -47,8 +46,8 @@ export function payloadToCanvas(
 export function canvasToPayload(
   nodes: WorkflowCanvasNode[],
   edges: WorkflowCanvasEdge[],
-  viewport: Viewport = { x: 0, y: 0, zoom: 1 },
-  blocksByType: BlockLookup = fallbackBlocksByType
+  viewport: Viewport,
+  blocksByType: BlockLookup
 ): WorkflowPayload {
   const definition: WorkflowDefinition = {
     schemaVersion: 1,

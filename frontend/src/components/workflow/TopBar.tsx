@@ -11,6 +11,7 @@ type TopBarProps = {
   isValidating: boolean;
   isSaving: boolean;
   isSubmitting: boolean;
+  isUnavailable: boolean;
   onNameChange: (name: string) => void;
   onUndo: () => void;
   onValidate: () => void;
@@ -27,12 +28,15 @@ export function TopBar({
   isValidating,
   isSaving,
   isSubmitting,
+  isUnavailable,
   onNameChange,
   onUndo,
   onValidate,
   onSave,
   onSubmit
 }: TopBarProps) {
+  const controlsDisabled = isLoading || isValidating || isSaving || isSubmitting || isUnavailable;
+
   return (
     <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-panel px-5">
       <div className="flex min-w-0 items-center gap-4">
@@ -43,7 +47,7 @@ export function TopBar({
           <input
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
-            disabled={isLoading || isValidating || isSaving || isSubmitting}
+            disabled={controlsDisabled}
             className="w-[360px] max-w-[44vw] truncate bg-transparent text-base font-semibold text-baited-ink outline-none"
           />
           <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
@@ -56,7 +60,7 @@ export function TopBar({
       <div className="flex items-center gap-2">
         <button
           onClick={onUndo}
-          disabled={!canUndo || isLoading || isValidating || isSaving || isSubmitting}
+          disabled={!canUndo || controlsDisabled}
           className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-45"
           title="Undo last change (Ctrl+Z)"
           aria-label="Undo last change"
@@ -66,7 +70,7 @@ export function TopBar({
         </button>
         <button
           onClick={onValidate}
-          disabled={isLoading || isValidating || isSaving || isSubmitting}
+          disabled={controlsDisabled}
           className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-60"
           title="Validate workflow"
         >
@@ -79,7 +83,7 @@ export function TopBar({
         </button>
         <button
           onClick={onSave}
-          disabled={isLoading || isValidating || isSaving || isSubmitting}
+          disabled={controlsDisabled}
           className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-60"
           title="Save workflow to PostgreSQL"
         >
@@ -92,7 +96,7 @@ export function TopBar({
         </button>
         <button
           onClick={onSubmit}
-          disabled={isLoading || isValidating || isSaving || isSubmitting}
+          disabled={controlsDisabled}
           className="flex items-center gap-2 rounded-md bg-baited-coral px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#ff7a68] disabled:cursor-not-allowed disabled:opacity-60"
           title="Submit mock execution payload"
         >

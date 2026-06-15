@@ -10,12 +10,12 @@ Rispetto alla prima review sono stati corretti i punti principali emersi:
 - CORS allineato per `localhost:3000` e `127.0.0.1:3000`;
 - viewport del canvas persistito nel payload;
 - branch degli edge configurabile da inspector;
-- fallback validation frontend riallineato alle regole backend principali.
+- validazione runtime affidata al backend come fonte autorevole.
 
 Rispetto alla review successiva sono stati aggiunti anche:
 
 - validazione forte dei parametri per tipo `text`, `number`, `select`;
-- fallback API limitato ai soli errori di rete/offline;
+- errori API distinti e mostrati in UI senza fallback locale;
 - errori HTTP backend mostrati in UI invece che nascosti;
 - demo workflow ricercato con identificatore stabile;
 - endpoint submissions con `404` su workflow inesistente;
@@ -25,6 +25,7 @@ Rispetto alla review successiva sono stati aggiunti anche:
 - test unitari backend per il validatore workflow.
 - catalogo blocchi spostato su entita' DB-backed con seed idempotente;
 - proiezione relazionale di nodi ed edge per ogni versione workflow.
+- fallback runtime frontend rimossi: catalogo, demo workflow e validazione vengono consumati dal backend.
 
 ## Stack
 
@@ -230,7 +231,7 @@ Il catalogo dei blocchi non e' piu' solo una duplicazione hardcoded frontend/bac
 - al boot del backend, `init_db()` crea le tabelle e seed-a i blocchi in modo idempotente;
 - `GET /api/workflow-blocks` legge i blocchi attivi da PostgreSQL;
 - il frontend usa il catalogo ricevuto dal backend per palette, inspector, branch disponibili e serializzazione;
-- il catalogo locale frontend rimane come fallback di rete, non come fonte di verita' primaria.
+- il frontend non importa un catalogo statico a runtime: se il backend non risponde, l'app mostra un errore esplicito e blocca le azioni.
 
 Le branch delle condition sono persistite come output rules:
 
@@ -290,7 +291,7 @@ Regole:
 
 ### Frontend
 
-Il fallback client in `frontend/src/lib/workflow/validation.ts` e' stato riallineato alle principali regole backend. Serve quando l'API non e' raggiungibile, ma il backend resta comunque la validazione definitiva.
+Il frontend non esegue piu' validazione logica locale come fallback. La UI invalida lo stato precedente quando il workflow cambia, ma la verifica effettiva passa sempre dagli endpoint FastAPI. Se il backend non e' raggiungibile, viene mostrato un errore esplicito nella UI invece di simulare una validazione locale.
 
 ### Stato Validazione
 
@@ -382,33 +383,25 @@ File:
 - `frontend/src/components/workflow/WorkflowBuilder.tsx`
 - `frontend/src/components/workflow/NodeInspector.tsx`
 
-### 5. Validazione Frontend/Backend Non Allineata
+### 5. Validazione Autoritativa Backend
 
 Problema iniziale:
 
-- fallback client molto piu' debole del backend.
+- il fallback client poteva divergere dalle regole backend;
+- due validatori distinti aumentavano il rischio di inconsistenze.
 
 Fix:
 
-- aggiunti controlli frontend per duplicate node id;
-- unknown node type;
-- missing edge source/target;
-- invalid branch;
-- terminal node con output;
-- missing required params;
-- duplicate branch;
-- condition con meno di due branch;
-- warnings su multi-output action;
-- warnings su missing incoming edge;
-- warnings su nodi irraggiungibili;
-- cycle detection;
-- parametri `select` fuori opzione;
-- parametri `number` non numerici;
-- parametri `text` non testuali.
+- rimosso il validator runtime frontend;
+- `Validate` chiama sempre FastAPI;
+- una failure di rete/API diventa un errore visibile nel pannello Validation;
+- le regole rimangono concentrate in `backend/app/services/validation.py`;
+- i test unitari backend coprono i casi principali.
 
 File:
 
-- `frontend/src/lib/workflow/validation.ts`
+- `frontend/src/lib/api/client.ts`
+- `frontend/src/components/workflow/WorkflowBuilder.tsx`
 - `backend/app/services/validation.py`
 
 ### 6. Selezione Multipla Canvas
@@ -455,7 +448,6 @@ Problema trovato:
 Fix:
 
 - validazione backend per `select`, `number`, `text`;
-- fallback frontend allineato alle stesse regole;
 - input numerici che preservano il valore vuoto come mancante;
 - test unitari backend su demo valida, select invalida e number invalido.
 
@@ -463,22 +455,22 @@ File:
 
 - `backend/app/services/validation.py`
 - `backend/tests/test_validation.py`
-- `frontend/src/lib/workflow/validation.ts`
 - `frontend/src/components/workflow/NodeInspector.tsx`
 
 ### 9. Errori API Non Piu' Nascosti
 
 Problema trovato:
 
-- il client frontend faceva fallback locale su qualunque errore API;
+- il client frontend faceva fallback locale in caso di API non raggiungibile;
 - errori HTTP reali del backend potevano sembrare semplicemente "API offline".
 
 Fix:
 
 - introdotti errori distinti per network/offline e risposta HTTP;
-- fallback locale solo per errori di rete;
+- rimosso il fallback locale anche sugli errori di rete;
 - errori HTTP mostrati in UI per load, validate, save e submit;
-- validazione remota fallita rappresentata come issue nel pannello Validation.
+- validazione remota fallita rappresentata come issue nel pannello Validation;
+- load iniziale fallito svuota canvas/catalogo e disabilita le azioni.
 
 File:
 
@@ -568,10 +560,8 @@ Fix:
 File:
 
 - `frontend/src/lib/workflow/branches.ts`
-- `frontend/src/lib/workflow/catalog.ts`
 - `frontend/src/components/workflow/NodeInspector.tsx`
 - `frontend/src/components/workflow/WorkflowBuilder.tsx`
-- `frontend/src/lib/workflow/validation.ts`
 - `backend/app/services/blocks.py`
 - `backend/app/services/validation.py`
 
@@ -587,7 +577,8 @@ Implementazione aggiuntiva:
 - aggiunto endpoint `GET /api/workflows/{workflow_id}/graph`;
 - il frontend calcola `blocksByType` dai blocchi ricevuti dall'API;
 - branch, inspector e serializzazione usano il catalogo backend;
-- il catalogo frontend statico resta solo fallback in caso di API non raggiungibile.
+- il catalogo frontend statico e' stato rimosso dal runtime;
+- se l'API non e' raggiungibile, la UI mostra `Backend unavailable` invece di usare dati locali finti.
 
 File:
 
@@ -595,6 +586,7 @@ File:
 - `backend/app/services/blocks.py`
 - `backend/app/services/workflow_graph.py`
 - `backend/app/api/routes.py`
+- `frontend/src/lib/workflow/block-utils.ts`
 - `frontend/src/lib/workflow/branches.ts`
 - `frontend/src/lib/workflow/transform.ts`
 - `frontend/src/components/workflow/WorkflowBuilder.tsx`

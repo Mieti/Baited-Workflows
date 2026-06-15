@@ -226,11 +226,9 @@ Key files:
 Workflow utilities:
 
 - `frontend/src/lib/workflow/types.ts`
-- `frontend/src/lib/workflow/catalog.ts`
+- `frontend/src/lib/workflow/block-utils.ts`
 - `frontend/src/lib/workflow/branches.ts`
-- `frontend/src/lib/workflow/demo.ts`
 - `frontend/src/lib/workflow/transform.ts`
-- `frontend/src/lib/workflow/validation.ts`
 
 API client:
 
@@ -260,6 +258,7 @@ Implemented:
 - payload preview tab;
 - submission log tab;
 - loading overlays plus production-style toast notifications for significant async results and errors;
+- backend-unavailable overlay when the API cannot provide catalog/workflow data;
 - saved viewport in `layout.viewport`;
 - CORS support for both `localhost` and `127.0.0.1`.
 
@@ -337,7 +336,8 @@ Catalog model:
 
 - block definitions are seeded into PostgreSQL at backend startup from `backend/app/services/blocks.py`;
 - `/api/workflow-blocks` reads the active block catalog from the DB;
-- frontend branch logic and node rendering use the API-provided catalog, with the local catalog kept only as network fallback;
+- frontend branch logic and node rendering use only the API-provided catalog at runtime;
+- the frontend has no runtime catalog/demo/validation fallback; if the API is unavailable, the UI shows an explicit error and disables workflow actions;
 - condition branches are modeled as output rules keyed by parameter value;
 - workflow versions keep a JSONB snapshot and also store normalized node/edge projections for queryability.
 
@@ -432,7 +432,7 @@ Rules:
 - nodes unreachable from entrypoint emit warnings;
 - graph must be acyclic.
 
-Frontend fallback validation mirrors the main backend rules, but backend remains the source of truth.
+The frontend does not run a local workflow validator at runtime. Backend validation is the single source of truth; frontend validation failures caused by network/API errors are shown as explicit UI errors.
 
 ## Verification Commands
 
@@ -494,9 +494,9 @@ Fixed:
 - incomplete CORS for `127.0.0.1`;
 - non-persisted viewport;
 - missing edge branch inspector;
-- mismatch between frontend fallback validation and backend validation.
+- frontend fallback validator removed so backend validation is the single source of truth;
 - weak block parameter validation for `select`, `number`, and `text`;
-- silent API fallback on backend HTTP errors;
+- silent API fallback removed; backend/API failures are shown explicitly;
 - demo workflow lookup keyed only by mutable name;
 - submissions endpoint returning an empty list for missing workflow ids;
 - undo/history logic extracted from the main builder component;
@@ -512,17 +512,17 @@ Fixed:
 - workflow block catalog moved to DB-backed entities with idempotent startup seed;
 - workflow versions now also persist normalized node and edge projections;
 - frontend workflow utilities now consume the API-provided block catalog instead of relying on static branch metadata.
+- frontend runtime fallback catalog, demo workflow, and local validator removed.
 
 ## Guidance For Future Changes
 
 When modifying the workflow model:
 
 - update the backend seed catalog and DB-backed block entities in `backend/app/services/blocks.py`;
-- keep the frontend local catalog only as an emergency fallback, not as source of truth;
 - update output rules when condition outcomes change;
 - update `frontend/src/lib/workflow/types.ts`;
 - update `backend/app/schemas/workflow.py`;
-- update frontend and backend validation rules;
+- update backend validation rules and the frontend API/data consumption paths;
 - update `POC_REPORT.md` and this file.
 
 When modifying UI interactions:
