@@ -1,0 +1,8 @@
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+*.tsbuildinfo
+__pycache__/
+.venv/
+backend/.venv/
