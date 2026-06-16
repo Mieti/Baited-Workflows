@@ -61,7 +61,7 @@ Rispetto alla review successiva sono stati aggiunti anche:
 - Backend health: https://baited-workflows-backend.onrender.com/api/health
 - Database: Supabase PostgreSQL tramite Shared Pooler.
 
-Il frontend usa `NEXT_PUBLIC_API_URL=https://baited-workflows-backend.onrender.com`.
+Il frontend chiama endpoint same-origin `/api/*`. In produzione Vercel inoltra queste chiamate al backend Render tramite rewrite configurato con `API_PROXY_URL=https://baited-workflows-backend.onrender.com`.
 Il backend usa `DATABASE_URL` verso Supabase e accetta domini Vercel tramite `CORS_ORIGIN_REGEX`.
 
 Il frontend Vercel e' collegato alla repo GitHub e deploya automaticamente `main`.
@@ -673,8 +673,8 @@ OPTIONS CORS da Vercel production      OK
 Smoke API scriptato:
 
 ```powershell
-.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
-.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
 ```
 
 Browser/UI:

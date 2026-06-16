@@ -6,8 +6,6 @@ import type {
   WorkflowRead
 } from "@/lib/workflow/types";
 
-const API_URL = resolveApiUrl();
-
 type ApiOptions = {
   method?: "GET" | "POST" | "PUT";
   body?: unknown;
@@ -15,7 +13,7 @@ type ApiOptions = {
 
 class ApiNetworkError extends Error {
   constructor(public originalError: unknown) {
-    super(`FastAPI backend is unreachable at ${API_URL}. Workflow data must be loaded from the backend.`);
+    super("Backend unavailable. Please retry in a moment.");
     this.name = "ApiNetworkError";
   }
 }
@@ -34,7 +32,7 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   let response: Response;
 
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    response = await fetch(path, {
       method: options.method ?? "GET",
       headers: { "Content-Type": "application/json" },
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -158,15 +156,4 @@ function extractDetailMessage(detail: unknown): string | null {
   }
 
   return null;
-}
-
-function resolveApiUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configuredUrl) return configuredUrl.replace(/\/$/, "");
-
-  if (process.env.NODE_ENV === "production") {
-    return "https://baited-workflows-backend.onrender.com";
-  }
-
-  return "http://localhost:8000";
 }

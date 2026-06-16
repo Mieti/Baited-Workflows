@@ -26,7 +26,7 @@ POC fullstack per un editor visuale di workflow orientato a campagne di security
 
 Il database del deploy e' un progetto Supabase PostgreSQL collegato al backend tramite Shared Pooler.
 
-Il frontend Vercel e' collegato direttamente a GitHub. Il backend Render viene ridistribuito automaticamente da una GitHub Action che chiama il deploy hook Render quando cambia `main` nella cartella `backend/`.
+Il frontend Vercel e' collegato direttamente a GitHub. Le chiamate browser usano endpoint same-origin `/api/*`; Vercel le inoltra al backend Render tramite rewrite server-side configurato con `API_PROXY_URL`. Il backend Render viene ridistribuito automaticamente da una GitHub Action che chiama il deploy hook Render quando cambia `main` nella cartella `backend/`.
 
 Usare sempre il dominio stabile `https://baited-workflows.vercel.app/workflows/demo`. Gli URL Vercel specifici del singolo deployment sono snapshot immutabili e possono contenere variabili build-time non aggiornate.
 
@@ -106,13 +106,13 @@ Smoke API locale:
 Smoke API produzione:
 
 ```powershell
-.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app
 ```
 
 Smoke API produzione con submit mockato:
 
 ```powershell
-.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
 ```
 
 ## Percorso demo consigliato
@@ -134,7 +134,7 @@ Il backend mantiene il payload workflow come snapshot JSONB versionato e persist
 - definizioni blocchi, parametri, opzioni, output e output rules;
 - workflow metadata, versioni e submission mockate.
 
-`GET /api/workflow-blocks` legge il catalogo dal database. Il frontend usa quel catalogo per palette, inspector, branch disponibili e serializzazione.
+`GET /api/workflow-blocks` legge il catalogo dal database. In produzione il browser chiama `/api/workflow-blocks` sul dominio Vercel, poi Vercel inoltra al backend Render. Il frontend usa quel catalogo per palette, inspector, branch disponibili e serializzazione.
 
 Il frontend non contiene fallback runtime per catalogo, demo workflow o validazione: FastAPI e' la fonte di verita'. Se il backend non e' raggiungibile, la UI mostra un errore esplicito e blocca le azioni sul workflow.
 

@@ -143,13 +143,13 @@ The `.env.example` file documents:
 DATABASE_URL=postgresql+psycopg://baited:baited@localhost:5432/baited_workflows
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 CORS_ORIGIN_REGEX=
-NEXT_PUBLIC_API_URL=http://localhost:8000
+API_PROXY_URL=http://127.0.0.1:8000
 ```
 
 Production deployment uses:
 
 ```txt
-NEXT_PUBLIC_API_URL=https://baited-workflows-backend.onrender.com
+API_PROXY_URL=https://baited-workflows-backend.onrender.com
 CORS_ORIGIN_REGEX=https://.*\.vercel\.app
 ```
 
@@ -339,6 +339,7 @@ Catalog model:
 
 - block definitions are seeded into PostgreSQL at backend startup from `backend/app/services/blocks.py`;
 - `/api/workflow-blocks` reads the active block catalog from the DB;
+- frontend calls same-origin `/api/*`; Next/Vercel rewrites those requests to the configured backend;
 - frontend branch logic and node rendering use only the API-provided catalog at runtime;
 - the frontend has no runtime catalog/demo/validation fallback; if the API is unavailable, the UI shows an explicit error and disables workflow actions;
 - condition branches are modeled as output rules keyed by parameter value;
@@ -462,8 +463,8 @@ API smoke:
 
 ```powershell
 .\scripts\smoke-api.ps1
-.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
-.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
 ```
 
 Equivalent manual checks:
@@ -479,6 +480,7 @@ curl.exe -s -D - -o NUL -X OPTIONS -H "Origin: http://127.0.0.1:3000" -H "Access
 Frontend:
 
 - Vercel is connected to the GitHub repository and deploys `main` automatically from the `frontend` root directory.
+- Browser requests use same-origin `/api/*`; Vercel rewrites those requests to Render through `API_PROXY_URL`.
 
 Backend:
 
