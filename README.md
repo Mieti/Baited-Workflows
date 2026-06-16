@@ -7,7 +7,6 @@ POC fullstack per un editor visuale di workflow orientato a campagne di security
 - Workflow builder visuale con canvas, nodi custom, branching, selezione multipla, undo e inspector laterale.
 - Persistenza reale su PostgreSQL.
 - Catalogo blocchi DB-backed con parametri, output e regole di branching esposti via API.
-- Proiezione relazionale di nodi ed edge per ogni versione workflow, oltre al payload JSONB.
 - API FastAPI per CRUD, validazione DAG e submit mockato.
 - Separazione tra `definition` del workflow e `layout` del canvas.
 - Payload JSON leggibile per mostrare cosa verrebbe salvato/eseguito.
@@ -26,6 +25,8 @@ POC fullstack per un editor visuale di workflow orientato a campagne di security
 - Repository GitHub: https://github.com/Mieti/Baited-Workflows
 
 Il database del deploy e' un progetto Supabase PostgreSQL collegato al backend tramite Shared Pooler.
+
+Il frontend Vercel e' collegato direttamente a GitHub. Il backend Render viene ridistribuito automaticamente da una GitHub Action che chiama il deploy hook Render quando cambia `main` nella cartella `backend/`.
 
 ## Avvio con Docker
 
@@ -92,6 +93,18 @@ cd backend
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pytest tests
 .\.venv\Scripts\python.exe -m ruff check app tests
+```
+
+Smoke API locale:
+
+```powershell
+.\scripts\smoke-api.ps1
+```
+
+Smoke API produzione:
+
+```powershell
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
 ```
 
 ## Percorso demo consigliato

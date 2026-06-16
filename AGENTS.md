@@ -195,6 +195,12 @@ Baited-POC/
     eslint.config.mjs
     package.json
 
+  .github/
+    workflows/
+      deploy-backend-render.yml
+  scripts/
+    smoke-api.ps1
+
   docker-compose.yml
   README.md
   POC_REPORT.md
@@ -453,15 +459,33 @@ cd backend
 API smoke:
 
 ```powershell
-curl.exe -s http://127.0.0.1:8000/api/health
-curl.exe -s http://127.0.0.1:8000/api/workflows/demo
+.\scripts\smoke-api.ps1
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
 ```
 
-CORS smoke:
+Equivalent manual checks:
 
 ```powershell
+curl.exe -s http://127.0.0.1:8000/api/health
+curl.exe -s http://127.0.0.1:8000/api/workflows/demo
 curl.exe -s -D - -o NUL -X OPTIONS -H "Origin: http://127.0.0.1:3000" -H "Access-Control-Request-Method: POST" http://127.0.0.1:8000/api/workflows/validate
 ```
+
+## Deployment Automation
+
+Frontend:
+
+- Vercel is connected to the GitHub repository and deploys `main` automatically from the `frontend` root directory.
+
+Backend:
+
+- Render service: `baited-workflows-backend`
+- Render service id: `srv-d8nr36bsq97s73bnnp10`
+- Render root directory: `backend`
+- GitHub Action: `.github/workflows/deploy-backend-render.yml`
+- Required GitHub secret: `RENDER_DEPLOY_HOOK_URL`
+
+The backend deploy workflow runs on pushes to `main` that touch `backend/**` or the workflow file itself. It calls the Render deploy hook with the pushed commit SHA.
 
 ## Known Limits
 

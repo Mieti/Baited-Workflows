@@ -64,6 +64,9 @@ Rispetto alla review successiva sono stati aggiunti anche:
 Il frontend usa `NEXT_PUBLIC_API_URL=https://baited-workflows-backend.onrender.com`.
 Il backend usa `DATABASE_URL` verso Supabase e accetta domini Vercel tramite `CORS_ORIGIN_REGEX`.
 
+Il frontend Vercel e' collegato alla repo GitHub e deploya automaticamente `main`.
+Il backend Render viene ridistribuito tramite GitHub Action: `.github/workflows/deploy-backend-render.yml` chiama il deploy hook Render salvato nel secret GitHub `RENDER_DEPLOY_HOOK_URL` quando cambia `main` nella cartella `backend/`.
+
 ## Struttura Del Progetto
 
 ```txt
@@ -95,6 +98,12 @@ Baited-POC/
     Dockerfile
     eslint.config.mjs
     package.json
+
+  .github/
+    workflows/
+      deploy-backend-render.yml
+  scripts/
+    smoke-api.ps1
 
   docker-compose.yml
   README.md
@@ -659,6 +668,12 @@ GET  Render /api/workflows/demo        OK
 OPTIONS CORS da Vercel production      OK
 ```
 
+Smoke API scriptato:
+
+```powershell
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
+```
+
 Browser/UI:
 
 ```txt
@@ -690,7 +705,6 @@ Vercel production page                  OK
 
 Prima di una consegna formale:
 
-- aggiungere smoke test API scriptato;
 - introdurre Alembic per migrazioni DB;
 - valutare test Playwright per i flussi UI principali;
 - valutare redo dopo undo;
