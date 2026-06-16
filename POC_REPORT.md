@@ -596,6 +596,26 @@ File:
 - `frontend/src/components/workflow/NodeInspector.tsx`
 - `frontend/src/components/workflow/nodes/WorkflowNode.tsx`
 
+### 16. API Proxy E Submit Versioning
+
+Fix:
+
+- il frontend non chiama piu' direttamente il dominio Render dal browser;
+- le chiamate usano path same-origin `/api/*`;
+- Vercel inoltra le richieste a Render tramite rewrite server-side configurato con `API_PROXY_URL`;
+- rimossa la variabile pubblica `NEXT_PUBLIC_API_URL` da Vercel e dal runtime frontend;
+- il submit mockato ora fa `flush()` quando crea una nuova `workflow_versions`, prima di inserire la `workflow_submissions`;
+- questo evita violazioni FK quando il payload cambia solo per layout/viewport non ancora salvati;
+- i messaggi di errore frontend sono stati resi user-facing, senza dettagli tecnici come URL backend o status interni.
+
+File:
+
+- `frontend/next.config.mjs`
+- `frontend/src/lib/api/client.ts`
+- `backend/app/api/routes.py`
+- `docker-compose.yml`
+- `.env.example`
+
 ## Setup
 
 ### Docker

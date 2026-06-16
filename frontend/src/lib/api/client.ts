@@ -122,8 +122,12 @@ async function readResponseBody(response: Response) {
 }
 
 function formatApiErrorMessage(status: number, detail: unknown) {
+  if (status >= 500) {
+    return "Backend request failed. Please retry in a moment.";
+  }
+
   const detailMessage = extractDetailMessage(detail);
-  return detailMessage ? `API request failed (${status}): ${detailMessage}` : `API request failed (${status}).`;
+  return detailMessage ? detailMessage : "Request failed. Please retry.";
 }
 
 function extractDetailMessage(detail: unknown): string | null {

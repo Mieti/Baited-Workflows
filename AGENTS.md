@@ -536,6 +536,8 @@ Fixed:
 - normalized workflow node/edge projections removed as unnecessary POC redundancy;
 - frontend workflow utilities now consume the API-provided block catalog instead of relying on static branch metadata.
 - frontend runtime fallback catalog, demo workflow, and local validator removed.
+- browser API calls now use same-origin `/api/*` through a Vercel rewrite backed by `API_PROXY_URL`; `NEXT_PUBLIC_API_URL` is no longer used.
+- submit creates and flushes a changed workflow version before inserting a submission, preventing FK errors when layout changes are submitted without a prior save.
 
 ## Guidance For Future Changes
 

@@ -189,20 +189,23 @@ def submit_workflow(workflow_id: UUID, payload: WorkflowPayload) -> SubmissionRe
                 detail=validation.model_dump(by_alias=True),
             )
 
+        definition = payload.definition.model_dump(by_alias=True)
+        layout = payload.layout.model_dump()
         latest = _latest_version(session, workflow.id)
         if (
             not latest
-            or latest.definition != payload.definition.model_dump(by_alias=True)
-            or latest.layout != payload.layout.model_dump()
+            or latest.definition != definition
+            or latest.layout != layout
         ):
             latest = WorkflowVersion(
                 workflow_id=workflow.id,
                 version=(latest.version + 1 if latest else 1),
-                definition=payload.definition.model_dump(by_alias=True),
-                layout=payload.layout.model_dump(),
+                definition=definition,
+                layout=layout,
                 validation_result=validation.model_dump(by_alias=True),
             )
             session.add(latest)
+            session.flush()
 
         workflow.status = "submitted"
         workflow.updated_at = utcnow()
@@ -210,8 +213,8 @@ def submit_workflow(workflow_id: UUID, payload: WorkflowPayload) -> SubmissionRe
             workflow_id=workflow.id,
             version_id=latest.id,
             payload={
-                "definition": payload.definition.model_dump(by_alias=True),
-                "layout": payload.layout.model_dump(),
+                "definition": definition,
+                "layout": layout,
                 "submittedBy": "poc-user",
             },
         )
