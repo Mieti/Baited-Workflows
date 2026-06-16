@@ -577,7 +577,6 @@ Implementazione aggiuntiva:
 - `/api/workflow-blocks` legge il catalogo dal DB invece che restituire solo una costante Python;
 - rimosse le entita' ridondanti `workflow_version_nodes` e `workflow_version_edges`;
 - rimosso l'endpoint `GET /api/workflows/{workflow_id}/graph`;
-- aggiunta cleanup startup per droppare le due tabelle obsolete se presenti;
 - il frontend calcola `blocksByType` dai blocchi ricevuti dall'API;
 - branch, inspector e serializzazione usano il catalogo backend;
 - il catalogo frontend statico e' stato rimosso dal runtime;
