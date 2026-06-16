@@ -28,6 +28,8 @@ Il database del deploy e' un progetto Supabase PostgreSQL collegato al backend t
 
 Il frontend Vercel e' collegato direttamente a GitHub. Il backend Render viene ridistribuito automaticamente da una GitHub Action che chiama il deploy hook Render quando cambia `main` nella cartella `backend/`.
 
+Usare sempre il dominio stabile `https://baited-workflows.vercel.app/workflows/demo`. Gli URL Vercel specifici del singolo deployment sono snapshot immutabili e possono contenere variabili build-time non aggiornate.
+
 ## Avvio con Docker
 
 ```bash
@@ -105,6 +107,12 @@ Smoke API produzione:
 
 ```powershell
 .\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
+```
+
+Smoke API produzione con submit mockato:
+
+```powershell
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
 ```
 
 ## Percorso demo consigliato

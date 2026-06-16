@@ -1,6 +1,7 @@
 param(
   [string]$ApiUrl = "http://127.0.0.1:8000",
-  [string]$FrontendOrigin = "http://127.0.0.1:3000"
+  [string]$FrontendOrigin = "http://127.0.0.1:3000",
+  [switch]$IncludeSubmit
 )
 
 $ErrorActionPreference = "Stop"
@@ -81,6 +82,19 @@ $cors = Invoke-SmokeRequest `
 $allowedOrigin = $cors.Headers["Access-Control-Allow-Origin"]
 if ($allowedOrigin -and $allowedOrigin -ne "*" -and $allowedOrigin -ne $FrontendOrigin) {
   throw "CORS preflight allowed origin '$allowedOrigin' instead of '$FrontendOrigin'."
+}
+
+if ($IncludeSubmit) {
+  $submission = Invoke-SmokeRequest `
+    -Name "Mock submission" `
+    -Uri "$baseUrl/api/workflows/$($workflow.id)/submit" `
+    -Method "POST" `
+    -Body $payload
+
+  $submissionResult = $submission.Content | ConvertFrom-Json
+  if ($submissionResult.status -ne "mocked_success") {
+    throw "Mock submission returned status '$($submissionResult.status)'."
+  }
 }
 
 Write-Host "Smoke API checks completed."

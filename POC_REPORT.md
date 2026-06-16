@@ -67,6 +67,8 @@ Il backend usa `DATABASE_URL` verso Supabase e accetta domini Vercel tramite `CO
 Il frontend Vercel e' collegato alla repo GitHub e deploya automaticamente `main`.
 Il backend Render viene ridistribuito tramite GitHub Action: `.github/workflows/deploy-backend-render.yml` chiama il deploy hook Render salvato nel secret GitHub `RENDER_DEPLOY_HOOK_URL` quando cambia `main` nella cartella `backend/`.
 
+Per le verifiche manuali usare il dominio stabile `https://baited-workflows.vercel.app/workflows/demo`. Gli URL Vercel specifici del deployment restano accessibili ma rappresentano snapshot immutabili.
+
 ## Struttura Del Progetto
 
 ```txt
@@ -672,6 +674,7 @@ Smoke API scriptato:
 
 ```powershell
 .\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
 ```
 
 Browser/UI:

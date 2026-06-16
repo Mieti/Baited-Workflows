@@ -53,6 +53,8 @@ http://127.0.0.1:3000/workflows/demo
 https://baited-workflows.vercel.app/workflows/demo
 ```
 
+Use the stable Vercel production alias above for manual testing. Deployment-specific Vercel URLs are immutable snapshots and can have stale build-time environment variables.
+
 Backend docs:
 
 ```txt
@@ -461,6 +463,7 @@ API smoke:
 ```powershell
 .\scripts\smoke-api.ps1
 .\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows-backend.onrender.com -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
 ```
 
 Equivalent manual checks:
