@@ -1,16 +1,15 @@
 "use client";
 
-import { AlertTriangle, Braces, CheckCircle2, ClipboardList } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList } from "lucide-react";
 import type { ReactNode } from "react";
 
-import type { SubmissionRead, ValidationIssue, ValidationResult, WorkflowPayload } from "@/lib/workflow/types";
+import type { SubmissionRead, ValidationIssue, ValidationResult } from "@/lib/workflow/types";
 
-type PanelTab = "validation" | "payload" | "submission";
+type PanelTab = "validation" | "submission";
 
 type BottomPanelProps = {
   activeTab: PanelTab;
   height: number;
-  payload: WorkflowPayload;
   validation: ValidationResult | null;
   submission: SubmissionRead | null;
   notice: string | null;
@@ -21,7 +20,6 @@ type BottomPanelProps = {
 export function BottomPanel({
   activeTab,
   height,
-  payload,
   validation,
   submission,
   notice,
@@ -43,15 +41,9 @@ export function BottomPanel({
             onClick={() => onTabChange("validation")}
           />
           <TabButton
-            active={activeTab === "payload"}
-            icon={<Braces className="h-4 w-4" />}
-            label="Payload"
-            onClick={() => onTabChange("payload")}
-          />
-          <TabButton
             active={activeTab === "submission"}
             icon={<ClipboardList className="h-4 w-4" />}
-            label="Submission Log"
+            label="Activity"
             onClick={() => onTabChange("submission")}
           />
         </div>
@@ -61,11 +53,6 @@ export function BottomPanel({
       <div className="thin-scrollbar min-h-0 flex-1 overflow-auto p-4">
         {activeTab === "validation" ? (
           <ValidationContent validation={validation} onIssueClick={onIssueClick} />
-        ) : null}
-        {activeTab === "payload" ? (
-          <pre className="rounded-md border border-line bg-canvas p-4 text-xs leading-5 text-zinc-300">
-            {JSON.stringify(payload, null, 2)}
-          </pre>
         ) : null}
         {activeTab === "submission" ? <SubmissionContent submission={submission} /> : null}
       </div>
@@ -106,14 +93,14 @@ function ValidationContent({
   onIssueClick: (issue: ValidationIssue) => void;
 }) {
   if (!validation) {
-    return <div className="text-sm text-zinc-500">Run validation to inspect graph and parameter issues.</div>;
+    return <div className="text-sm text-zinc-500">Validate the workflow to check missing connections or parameters.</div>;
   }
 
   if (validation.valid && !validation.warnings.length) {
     return (
       <div className="flex items-center gap-2 rounded-md border border-baited-green/30 bg-baited-green/10 p-3 text-sm text-emerald-100">
         <CheckCircle2 className="h-4 w-4 text-baited-green" />
-        Workflow is valid and ready for mock submission.
+        Workflow is valid and ready to submit.
       </div>
     );
   }
@@ -149,8 +136,7 @@ function IssueGroup({
               onClick={() => onIssueClick(issue)}
               className="block w-full rounded border border-transparent px-2 py-1.5 text-left text-sm hover:border-line hover:bg-panel2"
             >
-              <span className="font-semibold">{issue.code}</span>
-              <span className="block text-zinc-300">{issue.message}</span>
+              <span className="text-zinc-300">{issue.message}</span>
             </button>
           ))
         ) : (
@@ -163,19 +149,18 @@ function IssueGroup({
 
 function SubmissionContent({ submission }: { submission: SubmissionRead | null }) {
   if (!submission) {
-    return <div className="text-sm text-zinc-500">Submit the workflow to create a mock execution record.</div>;
+    return <div className="text-sm text-zinc-500">Submit the workflow to save this run.</div>;
   }
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         <Summary label="Status" value={submission.status} />
-        <Summary label="Submission id" value={submission.id} />
         <Summary label="Created at" value={new Date(submission.createdAt).toLocaleString()} />
       </div>
-      <pre className="rounded-md border border-line bg-canvas p-4 text-xs leading-5 text-zinc-300">
-        {JSON.stringify(submission.payload, null, 2)}
-      </pre>
+      <div className="rounded-md border border-baited-green/30 bg-baited-green/10 p-3 text-sm text-emerald-100">
+        Workflow submission has been saved.
+      </div>
     </div>
   );
 }

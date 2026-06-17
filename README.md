@@ -7,9 +7,10 @@ POC fullstack per un editor visuale di workflow orientato a campagne di security
 - Workflow builder visuale con canvas, nodi custom, branching, selezione multipla, undo e inspector laterale.
 - Persistenza reale su PostgreSQL.
 - Catalogo blocchi DB-backed con parametri, output e regole di branching esposti via API.
-- API FastAPI per CRUD, validazione DAG e submit mockato.
+- API FastAPI per CRUD, validazione DAG e submit dimostrativo.
+- Reset esplicito del workflow demo originale tramite API backend.
 - Separazione tra `definition` del workflow e `layout` del canvas.
-- Payload JSON leggibile per mostrare cosa verrebbe salvato/eseguito.
+- Payload workflow strutturato e versionato per mostrare cosa verrebbe salvato/eseguito.
 
 ## Stack
 
@@ -24,9 +25,9 @@ POC fullstack per un editor visuale di workflow orientato a campagne di security
 - Backend health: https://baited-workflows-backend.onrender.com/api/health
 - Repository GitHub: https://github.com/Mieti/Baited-Workflows
 
-Il database del deploy e' un progetto Supabase PostgreSQL collegato al backend tramite Shared Pooler.
+Il database del deploy e' un progetto Supabase PostgreSQL collegato al backend tramite Shared Pooler. Il backend delega a quel pooler la gestione del pooling e non mantiene un `QueuePool` SQLAlchemy locale.
 
-Il frontend Vercel e' collegato direttamente a GitHub. Le chiamate browser usano endpoint same-origin `/api/*`; Vercel le inoltra al backend Render tramite rewrite server-side configurato con `API_PROXY_URL`. Il backend Render viene ridistribuito automaticamente da una GitHub Action che chiama il deploy hook Render quando cambia `main` nella cartella `backend/`.
+Il frontend Vercel e' collegato direttamente a GitHub. Le chiamate browser usano endpoint same-origin `/api/*`; una rewrite Vercel configurata in `next.config.mjs` inoltra le richieste al backend Render usando `API_PROXY_URL`. Il backend Render viene ridistribuito automaticamente da una GitHub Action che chiama il deploy hook Render quando cambia `main` nella cartella `backend/`.
 
 Usare sempre il dominio stabile `https://baited-workflows.vercel.app/workflows/demo`. Gli URL Vercel specifici del singolo deployment sono snapshot immutabili e possono contenere variabili build-time non aggiornate.
 
@@ -124,8 +125,9 @@ Smoke API produzione con submit mockato:
 5. Configura il nodo selezionato dall'inspector laterale.
 6. Collega i nodi e osserva le label di branch sugli edge.
 7. Clicca `Validate`.
-8. Controlla tab `Payload`.
-9. Clicca `Save` e poi `Submit mock`.
+8. Clicca `Save` e poi `Submit`.
+9. Controlla la tab `Activity`.
+10. Usa `Reset demo` per ripristinare il workflow demo originale.
 
 ## Modello dati
 
@@ -134,7 +136,7 @@ Il backend mantiene il payload workflow come snapshot JSONB versionato e persist
 - definizioni blocchi, parametri, opzioni, output e output rules;
 - workflow metadata, versioni e submission mockate.
 
-`GET /api/workflow-blocks` legge il catalogo dal database. In produzione il browser chiama `/api/workflow-blocks` sul dominio Vercel, poi Vercel inoltra al backend Render. Il frontend usa quel catalogo per palette, inspector, branch disponibili e serializzazione.
+`GET /api/workflow-blocks` legge il catalogo dal database. In produzione il browser chiama `/api/workflow-blocks` sul dominio Vercel, poi la rewrite Vercel inoltra al backend Render. Il frontend usa quel catalogo per palette, inspector, branch disponibili e serializzazione.
 
 Il frontend non contiene fallback runtime per catalogo, demo workflow o validazione: FastAPI e' la fonte di verita'. Se il backend non e' raggiungibile, la UI mostra un errore esplicito e blocca le azioni sul workflow.
 

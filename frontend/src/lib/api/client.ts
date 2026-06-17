@@ -13,7 +13,7 @@ type ApiOptions = {
 
 class ApiNetworkError extends Error {
   constructor(public originalError: unknown) {
-    super("Backend unavailable. Please retry in a moment.");
+    super("Workflow service unavailable. Please retry in a moment.");
     this.name = "ApiNetworkError";
   }
 }
@@ -30,12 +30,18 @@ class ApiRequestError extends Error {
 
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   let response: Response;
+  const headers = new Headers();
+  const body = options.body !== undefined ? JSON.stringify(options.body) : undefined;
+
+  if (body !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
 
   try {
     response = await fetch(path, {
       method: options.method ?? "GET",
-      headers: { "Content-Type": "application/json" },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers,
+      body,
       cache: "no-store"
     });
   } catch (error) {
@@ -55,6 +61,12 @@ export async function getWorkflowBlocks(): Promise<BlockDefinition[]> {
 
 export async function getDemoWorkflow(): Promise<WorkflowRead> {
   return request<WorkflowRead>("/api/workflows/demo");
+}
+
+export async function resetDemoWorkflow(): Promise<WorkflowRead> {
+  return request<WorkflowRead>("/api/workflows/demo/reset", {
+    method: "POST"
+  });
 }
 
 export async function saveWorkflow(
@@ -123,7 +135,7 @@ async function readResponseBody(response: Response) {
 
 function formatApiErrorMessage(status: number, detail: unknown) {
   if (status >= 500) {
-    return "Backend request failed. Please retry in a moment.";
+    return "Workflow service request failed. Please retry in a moment.";
   }
 
   const detailMessage = extractDetailMessage(detail);

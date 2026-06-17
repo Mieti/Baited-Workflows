@@ -45,6 +45,7 @@ import {
   getApiErrorMessage,
   getDemoWorkflow,
   getWorkflowBlocks,
+  resetDemoWorkflow,
   saveWorkflow,
   submitWorkflow,
   validateWorkflow
@@ -63,8 +64,8 @@ import type {
 } from "@/lib/workflow/types";
 
 const nodeTypes = { workflowNode: WorkflowNode };
-type PanelTab = "validation" | "payload" | "submission";
-type PendingAction = "loading" | "validating" | "saving" | "submitting" | null;
+type PanelTab = "validation" | "submission";
+type PendingAction = "loading" | "validating" | "resetting" | "saving" | "submitting" | null;
 const DEFAULT_BOTTOM_PANEL_HEIGHT = 260;
 const MIN_BOTTOM_PANEL_HEIGHT = 150;
 const MIN_CANVAS_HEIGHT = 280;
@@ -103,6 +104,7 @@ function WorkflowBuilderInner() {
   const resizeStartRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const positionDragSnapshotRef = useRef<WorkflowHistorySnapshot | null>(null);
   const hasLoadedWorkflowRef = useRef(false);
+  const isResettingRef = useRef(false);
   const { dismissToast, showToast, toasts } = useWorkflowToasts();
   const { fitView, screenToFlowPosition, setViewport } = useReactFlow<
     WorkflowCanvasNode,
@@ -654,7 +656,7 @@ function WorkflowBuilderInner() {
       ? "Validation request failed."
       : result.valid
         ? "Validation passed."
-        : "Validation found issues. Review the Validation tab.";
+        : "Validation found issues. Review the validation panel.";
     setNotice(message);
     if (source === "manual") {
       showToast({
@@ -667,6 +669,88 @@ function WorkflowBuilderInner() {
     setPendingAction(null);
     return result;
   }, [dismissToast, loadError, payload, pendingAction, showToast, validation, workflowId]);
+
+  const handleResetDemo = useCallback(async () => {
+    if (pendingAction || loadError || isResettingRef.current) return;
+
+    const confirmed = window.confirm(
+      "Reset the demo workflow to its original version? Unsaved changes will be lost."
+    );
+    if (!confirmed) return;
+
+    isResettingRef.current = true;
+    setPendingAction("resetting");
+    dismissToast("workflow-validation");
+    dismissToast("workflow-save");
+    dismissToast("workflow-submit");
+    dismissToast("workflow-reset");
+    hasLoadedWorkflowRef.current = false;
+    resetHistory();
+    resetTransientHistory();
+
+    try {
+      const resetWorkflow = await resetDemoWorkflow();
+      const canvas = payloadToCanvas(
+        {
+          definition: resetWorkflow.definition,
+          layout: resetWorkflow.layout
+        },
+        blocksByType
+      );
+
+      setLoadError(null);
+      setWorkflowId(resetWorkflow.id);
+      setWorkflowName(resetWorkflow.name);
+      setWorkflowDescription(resetWorkflow.description);
+      setWorkflowStatus(resetWorkflow.status);
+      setValidation(resetWorkflow.validationResult);
+      setSubmission(null);
+      setActiveTab("validation");
+      setSaveState("saved");
+      setSelectedNodeId(null);
+      setSelectedEdgeId(null);
+      setSelection({ nodeIds: [], edgeIds: [] });
+      setViewportState(resetWorkflow.layout.viewport);
+      setNodes(canvas.nodes);
+      setEdges(canvas.edges);
+      void setViewport(resetWorkflow.layout.viewport, { duration: 0 });
+      window.setTimeout(() => {
+        hasLoadedWorkflowRef.current = true;
+      }, 0);
+
+      const message = "Demo workflow reset.";
+      setNotice(message);
+      showToast({
+        id: "workflow-reset",
+        message,
+        tone: "success"
+      });
+    } catch (error) {
+      hasLoadedWorkflowRef.current = true;
+      const message = getApiErrorMessage(error, "Demo reset failed.");
+      setNotice(message);
+      showToast({
+        id: "workflow-reset",
+        message,
+        tone: "error",
+        timeout: 6500
+      });
+    } finally {
+      isResettingRef.current = false;
+      setPendingAction(null);
+    }
+  }, [
+    dismissToast,
+    blocksByType,
+    loadError,
+    pendingAction,
+    resetHistory,
+    resetTransientHistory,
+    setEdges,
+    setNodes,
+    setViewport,
+    showToast
+  ]);
 
   const handleSave = useCallback(async () => {
     if (pendingAction || loadError) return;
@@ -681,7 +765,7 @@ function WorkflowBuilderInner() {
       setWorkflowStatus(saved.status);
       setValidation(saved.validationResult);
       setSaveState("saved");
-      const message = `Saved version ${saved.version} to PostgreSQL.`;
+      const message = "Workflow saved.";
       setNotice(message);
       showToast({
         id: "workflow-save",
@@ -722,7 +806,7 @@ function WorkflowBuilderInner() {
     if (!result.valid) {
       const apiIssue = result.errors.find((issue) => issue.code === "api_validation_failed");
       const message =
-        apiIssue?.message ?? "Mock submission blocked until validation issues are resolved.";
+        apiIssue?.message ?? "Submission blocked until validation issues are resolved.";
       showToast({
         id: "workflow-submit",
         message,
@@ -738,7 +822,7 @@ function WorkflowBuilderInner() {
       setSubmission(submitted);
       setWorkflowStatus("submitted");
       setActiveTab("submission");
-      const message = "Mock submission stored in PostgreSQL.";
+      const message = "Workflow submitted.";
       setNotice(message);
       showToast({
         id: "workflow-submit",
@@ -746,7 +830,7 @@ function WorkflowBuilderInner() {
         tone: "success"
       });
     } catch (error) {
-      const message = getApiErrorMessage(error, "Mock submission failed.");
+      const message = getApiErrorMessage(error, "Submission failed.");
       setActiveTab("submission");
       setNotice(message);
       showToast({
@@ -854,6 +938,7 @@ function WorkflowBuilderInner() {
 
   const isWorkflowLoading = pendingAction === "loading";
   const isValidating = pendingAction === "validating";
+  const isResetting = pendingAction === "resetting";
   const isSaving = pendingAction === "saving";
   const isSubmitting = pendingAction === "submitting";
   const isUnavailable = Boolean(loadError);
@@ -867,11 +952,13 @@ function WorkflowBuilderInner() {
         canUndo={canUndo}
         isLoading={isWorkflowLoading}
         isValidating={isValidating}
+        isResetting={isResetting}
         isSaving={isSaving}
         isSubmitting={isSubmitting}
         isUnavailable={isUnavailable}
         onNameChange={handleNameChange}
         onUndo={handleUndo}
+        onResetDemo={handleResetDemo}
         onValidate={runValidation}
         onSave={handleSave}
         onSubmit={handleSubmit}
@@ -895,11 +982,11 @@ function WorkflowBuilderInner() {
                 <div className="max-w-md rounded-md border border-rose-500/40 bg-panel/95 p-4 text-sm text-zinc-300 shadow-node">
                   <div className="flex items-center gap-2 font-semibold text-rose-100">
                     <AlertTriangle className="h-4 w-4 text-rose-300" />
-                    Backend unavailable
+                    Service unavailable
                   </div>
                   <p className="mt-2 leading-6">{loadError}</p>
                   <p className="mt-3 text-xs text-zinc-500">
-                    Start the FastAPI service or check the deployed API URL, then refresh the page.
+                    The workflow service is temporarily unavailable. Refresh the page in a moment.
                   </p>
                 </div>
               </div>
@@ -1057,7 +1144,6 @@ function WorkflowBuilderInner() {
           <BottomPanel
             activeTab={activeTab}
             height={bottomPanelHeight}
-            payload={payload}
             validation={validation}
             submission={submission}
             notice={notice}

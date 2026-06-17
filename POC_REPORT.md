@@ -26,6 +26,8 @@ Rispetto alla review successiva sono stati aggiunti anche:
 - catalogo blocchi spostato su entita' DB-backed con seed idempotente;
 - rimossa la proiezione relazionale di nodi/edge per mantenere il POC piu' snello;
 - fallback runtime frontend rimossi: catalogo, demo workflow e validazione vengono consumati dal backend.
+- aggiunto reset esplicito del workflow demo originale tramite API backend dedicata.
+- le scritture di nuove versioni usano retry ottimistico sul vincolo unico `(workflow_id, version)`, evitando duplicati senza lock lunghi in caso di richieste concorrenti.
 
 ## Stack
 
@@ -61,8 +63,8 @@ Rispetto alla review successiva sono stati aggiunti anche:
 - Backend health: https://baited-workflows-backend.onrender.com/api/health
 - Database: Supabase PostgreSQL tramite Shared Pooler.
 
-Il frontend chiama endpoint same-origin `/api/*`. In produzione Vercel inoltra queste chiamate al backend Render tramite rewrite configurato con `API_PROXY_URL=https://baited-workflows-backend.onrender.com`.
-Il backend usa `DATABASE_URL` verso Supabase e accetta domini Vercel tramite `CORS_ORIGIN_REGEX`.
+Il frontend chiama endpoint same-origin `/api/*`. In produzione una rewrite Vercel configurata in `next.config.mjs` inoltra queste chiamate al backend Render usando `API_PROXY_URL=https://baited-workflows-backend.onrender.com`.
+Il backend usa `DATABASE_URL` verso Supabase, accetta domini Vercel tramite `CORS_ORIGIN_REGEX` e delega il pooling al Supabase Shared Pooler invece di mantenere un `QueuePool` SQLAlchemy locale.
 
 Il frontend Vercel e' collegato alla repo GitHub e deploya automaticamente `main`.
 Il backend Render viene ridistribuito tramite GitHub Action: `.github/workflows/deploy-backend-render.yml` chiama il deploy hook Render salvato nel secret GitHub `RENDER_DEPLOY_HOOK_URL` quando cambia `main` nella cartella `backend/`.
@@ -119,11 +121,12 @@ Baited-POC/
 
 La UI e' una schermata unica composta da:
 
-- top bar con nome workflow, stato, `Validate`, `Save`, `Submit mock`;
+- top bar con nome workflow, stato, `Validate`, `Save`, `Submit`;
+- azione `Reset demo` per ripristinare il workflow demo originale dal backend;
 - sidebar sinistra con catalogo blocchi;
 - canvas centrale con nodi trascinabili e collegabili;
 - inspector destro per configurare nodi o edge;
-- bottom panel con tab `Validation`, `Payload`, `Submission Log`;
+- bottom panel con tab `Validation` e `Activity`;
 - spinner e stati disabilitati per le operazioni in corso, con toast solo per esiti o blocchi significativi;
 - controlli zoom/fit e mini map in tema dark.
 
@@ -132,6 +135,7 @@ La UI e' una schermata unica composta da:
 Implementato:
 
 - caricamento del workflow demo;
+- reset esplicito del workflow demo alla versione originale;
 - drag/drop di blocchi dalla sidebar;
 - aggiunta blocchi via click;
 - connessione tra nodi;
@@ -253,6 +257,7 @@ Endpoint implementati:
 GET  /api/health
 GET  /api/workflow-blocks
 GET  /api/workflows/demo
+POST /api/workflows/demo/reset
 GET  /api/workflows
 POST /api/workflows
 GET  /api/workflows/{workflow_id}
@@ -580,7 +585,7 @@ Implementazione aggiuntiva:
 - il frontend calcola `blocksByType` dai blocchi ricevuti dall'API;
 - branch, inspector e serializzazione usano il catalogo backend;
 - il catalogo frontend statico e' stato rimosso dal runtime;
-- se l'API non e' raggiungibile, la UI mostra `Backend unavailable` invece di usare dati locali finti.
+- se l'API non e' raggiungibile, la UI mostra un errore di servizio non disponibile invece di usare dati locali finti.
 
 File:
 
@@ -601,7 +606,7 @@ Fix:
 
 - il frontend non chiama piu' direttamente il dominio Render dal browser;
 - le chiamate usano path same-origin `/api/*`;
-- Vercel inoltra le richieste a Render tramite rewrite server-side configurato con `API_PROXY_URL`;
+- una rewrite Vercel in `next.config.mjs` inoltra le richieste `/api/*` a Render usando `API_PROXY_URL`;
 - rimossa la variabile pubblica `NEXT_PUBLIC_API_URL` da Vercel e dal runtime frontend;
 - il submit mockato ora fa `flush()` quando crea una nuova `workflow_versions`, prima di inserire la `workflow_submissions`;
 - questo evita violazioni FK quando il payload cambia solo per layout/viewport non ancora salvati;
@@ -612,6 +617,7 @@ File:
 - `frontend/next.config.mjs`
 - `frontend/src/lib/api/client.ts`
 - `backend/app/api/routes.py`
+- `backend/app/db/session.py`
 - `docker-compose.yml`
 - `.env.example`
 

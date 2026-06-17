@@ -2,6 +2,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, desc, select
 
 from app.db.session import engine
@@ -30,6 +31,7 @@ from app.services.demo import (
 from app.services.validation import validate_workflow
 
 router = APIRouter(prefix="/api")
+MAX_VERSION_WRITE_RETRIES = 3
 
 
 @router.get("/health")
@@ -52,41 +54,78 @@ def validate_unsaved_workflow(payload: WorkflowPayload) -> ValidationResult:
 @router.get("/workflows/demo", response_model=WorkflowRead)
 def get_demo_workflow() -> WorkflowRead:
     with Session(engine) as session:
-        existing = session.get(Workflow, DEMO_WORKFLOW_ID)
-        if not existing:
-            existing = session.exec(
-                select(Workflow)
-                .where(Workflow.description == DEMO_WORKFLOW_DESCRIPTION)
-                .order_by(desc(Workflow.created_at))
-            ).first()
-        if not existing:
-            existing = session.exec(
-                select(Workflow)
-                .where(Workflow.name == DEMO_WORKFLOW_NAME)
-                .order_by(desc(Workflow.created_at))
-            ).first()
-        if existing:
-            return _workflow_read(session, existing)
+        workflow = _ensure_demo_workflow(session)
+        return _workflow_read(session, workflow)
 
+
+@router.post("/workflows/demo/reset", response_model=WorkflowRead)
+def reset_demo_workflow() -> WorkflowRead:
+    with Session(engine) as session:
+        workflow = _ensure_demo_workflow(session)
+        catalog = get_block_catalog(session)
+        validation = validate_workflow(DEMO_DEFINITION, catalog)
+        definition = DEMO_DEFINITION.model_dump(by_alias=True)
+        layout = DEMO_LAYOUT.model_dump()
+        validation_result = validation.model_dump(by_alias=True)
+
+        _add_workflow_version(
+            session,
+            workflow.id,
+            definition,
+            layout,
+            validation_result,
+            deduplicate=True,
+        )
+
+        workflow.name = DEMO_WORKFLOW_NAME
+        workflow.description = DEMO_WORKFLOW_DESCRIPTION
+        workflow.status = "draft"
+        workflow.updated_at = utcnow()
+        session.add(workflow)
+        session.commit()
+        session.refresh(workflow)
+        return _workflow_read(session, workflow)
+
+
+def _ensure_demo_workflow(session: Session) -> Workflow:
+    workflow = session.get(Workflow, DEMO_WORKFLOW_ID)
+    if not workflow:
+        workflow = session.exec(
+            select(Workflow)
+            .where(Workflow.description == DEMO_WORKFLOW_DESCRIPTION)
+            .order_by(desc(Workflow.created_at))
+        ).first()
+    if not workflow:
+        workflow = session.exec(
+            select(Workflow)
+            .where(Workflow.name == DEMO_WORKFLOW_NAME)
+            .order_by(desc(Workflow.created_at))
+        ).first()
+    if not workflow:
         workflow = Workflow(
             id=DEMO_WORKFLOW_ID,
             name=DEMO_WORKFLOW_NAME,
             description=DEMO_WORKFLOW_DESCRIPTION,
         )
-        catalog = get_block_catalog(session)
-        validation = validate_workflow(DEMO_DEFINITION, catalog)
-        version = WorkflowVersion(
-            workflow_id=workflow.id,
-            version=1,
-            definition=DEMO_DEFINITION.model_dump(by_alias=True),
-            layout=DEMO_LAYOUT.model_dump(),
-            validation_result=validation.model_dump(by_alias=True),
-        )
-        session.add(workflow)
-        session.add(version)
-        session.commit()
-        session.refresh(workflow)
-        return _workflow_read(session, workflow)
+
+    latest = _latest_version(session, workflow.id)
+    if latest:
+        return workflow
+
+    session.add(workflow)
+    catalog = get_block_catalog(session)
+    validation = validate_workflow(DEMO_DEFINITION, catalog)
+    version = WorkflowVersion(
+        workflow_id=workflow.id,
+        version=1,
+        definition=DEMO_DEFINITION.model_dump(by_alias=True),
+        layout=DEMO_LAYOUT.model_dump(),
+        validation_result=validation.model_dump(by_alias=True),
+    )
+    session.add(version)
+    session.commit()
+    session.refresh(workflow)
+    return workflow
 
 
 @router.get("/workflows", response_model=list[WorkflowRead])
@@ -132,7 +171,6 @@ def update_workflow(workflow_id: UUID, payload: WorkflowUpdate) -> WorkflowRead:
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
 
-        latest = _latest_version(session, workflow.id)
         catalog = get_block_catalog(session)
         validation = validate_workflow(payload.definition, catalog)
 
@@ -143,15 +181,14 @@ def update_workflow(workflow_id: UUID, payload: WorkflowUpdate) -> WorkflowRead:
         workflow.status = "draft"
         workflow.updated_at = utcnow()
 
-        version = WorkflowVersion(
-            workflow_id=workflow.id,
-            version=(latest.version + 1 if latest else 1),
-            definition=payload.definition.model_dump(by_alias=True),
-            layout=payload.layout.model_dump(),
-            validation_result=validation.model_dump(by_alias=True),
+        _add_workflow_version(
+            session,
+            workflow.id,
+            payload.definition.model_dump(by_alias=True),
+            payload.layout.model_dump(),
+            validation.model_dump(by_alias=True),
         )
         session.add(workflow)
-        session.add(version)
         session.commit()
         session.refresh(workflow)
         return _workflow_read(session, workflow)
@@ -191,21 +228,14 @@ def submit_workflow(workflow_id: UUID, payload: WorkflowPayload) -> SubmissionRe
 
         definition = payload.definition.model_dump(by_alias=True)
         layout = payload.layout.model_dump()
-        latest = _latest_version(session, workflow.id)
-        if (
-            not latest
-            or latest.definition != definition
-            or latest.layout != layout
-        ):
-            latest = WorkflowVersion(
-                workflow_id=workflow.id,
-                version=(latest.version + 1 if latest else 1),
-                definition=definition,
-                layout=layout,
-                validation_result=validation.model_dump(by_alias=True),
-            )
-            session.add(latest)
-            session.flush()
+        latest = _add_workflow_version(
+            session,
+            workflow.id,
+            definition,
+            layout,
+            validation.model_dump(by_alias=True),
+            deduplicate=True,
+        )
 
         workflow.status = "submitted"
         workflow.updated_at = utcnow()
@@ -267,6 +297,59 @@ def _latest_version(session: Session, workflow_id: UUID) -> WorkflowVersion | No
         .where(WorkflowVersion.workflow_id == workflow_id)
         .order_by(desc(WorkflowVersion.version))
     ).first()
+
+
+def _add_workflow_version(
+    session: Session,
+    workflow_id: UUID,
+    definition: dict[str, Any],
+    layout: dict[str, Any],
+    validation_result: dict[str, Any],
+    *,
+    deduplicate: bool = False,
+) -> WorkflowVersion:
+    for _ in range(MAX_VERSION_WRITE_RETRIES):
+        latest = _latest_version(session, workflow_id)
+        if deduplicate and latest and _version_matches(
+            latest,
+            definition,
+            layout,
+            validation_result,
+        ):
+            return latest
+
+        version = WorkflowVersion(
+            workflow_id=workflow_id,
+            version=(latest.version + 1 if latest else 1),
+            definition=definition,
+            layout=layout,
+            validation_result=validation_result,
+        )
+        try:
+            with session.begin_nested():
+                session.add(version)
+                session.flush()
+            return version
+        except IntegrityError:
+            continue
+
+    raise HTTPException(
+        status_code=409,
+        detail="Workflow changed concurrently. Please retry.",
+    )
+
+
+def _version_matches(
+    version: WorkflowVersion,
+    definition: dict[str, Any],
+    layout: dict[str, Any],
+    validation_result: dict[str, Any],
+) -> bool:
+    return (
+        version.definition == definition
+        and version.layout == layout
+        and version.validation_result == validation_result
+    )
 
 
 def _workflow_read(session: Session, workflow: Workflow) -> WorkflowRead:

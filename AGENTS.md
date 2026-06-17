@@ -43,6 +43,7 @@ Infra/dev:
 - Manual local setup is supported.
 - PostgreSQL is expected at `localhost:5432` unless overridden.
 - Public POC deployment uses Vercel for the frontend, Render for the backend, and Supabase PostgreSQL via Shared Pooler.
+- The backend delegates pooling to Supabase Shared Pooler and does not keep a local SQLAlchemy `QueuePool`.
 
 ## Important URLs
 
@@ -262,9 +263,9 @@ Implemented:
 - automatic cleanup of connected edges when a node is deleted;
 - cycle prevention when connecting nodes;
 - validation tab;
-- payload preview tab;
-- submission log tab;
+- activity tab for the latest workflow submission;
 - loading overlays plus production-style toast notifications for significant async results and errors;
+- explicit demo reset action that asks the backend to restore the original demo workflow;
 - backend-unavailable overlay when the API cannot provide catalog/workflow data;
 - saved viewport in `layout.viewport`;
 - CORS support for both `localhost` and `127.0.0.1`.
@@ -339,7 +340,7 @@ Catalog model:
 
 - block definitions are seeded into PostgreSQL at backend startup from `backend/app/services/blocks.py`;
 - `/api/workflow-blocks` reads the active block catalog from the DB;
-- frontend calls same-origin `/api/*`; Next/Vercel rewrites those requests to the configured backend;
+- frontend calls same-origin `/api/*`; a Vercel/Next rewrite forwards those requests to the configured backend;
 - frontend branch logic and node rendering use only the API-provided catalog at runtime;
 - the frontend has no runtime catalog/demo/validation fallback; if the API is unavailable, the UI shows an explicit error and disables workflow actions;
 - condition branches are modeled as output rules keyed by parameter value;
@@ -398,6 +399,7 @@ Campaign Start
 GET  /api/health
 GET  /api/workflow-blocks
 GET  /api/workflows/demo
+POST /api/workflows/demo/reset
 GET  /api/workflows
 POST /api/workflows
 GET  /api/workflows/{workflow_id}
@@ -464,6 +466,7 @@ API smoke:
 ```powershell
 .\scripts\smoke-api.ps1
 .\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app
+.\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app -IncludeReset
 .\scripts\smoke-api.ps1 -ApiUrl https://baited-workflows.vercel.app -FrontendOrigin https://baited-workflows.vercel.app -IncludeSubmit
 ```
 
@@ -480,7 +483,7 @@ curl.exe -s -D - -o NUL -X OPTIONS -H "Origin: http://127.0.0.1:3000" -H "Access
 Frontend:
 
 - Vercel is connected to the GitHub repository and deploys `main` automatically from the `frontend` root directory.
-- Browser requests use same-origin `/api/*`; Vercel rewrites those requests to Render through `API_PROXY_URL`.
+- Browser requests use same-origin `/api/*`; Vercel rewrites them to Render through `API_PROXY_URL`.
 
 Backend:
 
@@ -536,8 +539,11 @@ Fixed:
 - normalized workflow node/edge projections removed as unnecessary POC redundancy;
 - frontend workflow utilities now consume the API-provided block catalog instead of relying on static branch metadata.
 - frontend runtime fallback catalog, demo workflow, and local validator removed.
-- browser API calls now use same-origin `/api/*` through a Vercel rewrite backed by `API_PROXY_URL`; `NEXT_PUBLIC_API_URL` is no longer used.
+- browser API calls now use same-origin `/api/*` through a Vercel/Next rewrite backed by `API_PROXY_URL`; `NEXT_PUBLIC_API_URL` is no longer used.
 - submit creates and flushes a changed workflow version before inserting a submission, preventing FK errors when layout changes are submitted without a prior save.
+- explicit backend-backed demo reset action added through `POST /api/workflows/demo/reset`.
+- workflow version writes use optimistic retry on the `(workflow_id, version)` unique constraint, preventing duplicate version numbers without long row locks under concurrent save/reset/submit requests.
+- frontend reset now ignores duplicate clicks while a reset request is already in flight.
 
 ## Guidance For Future Changes
 

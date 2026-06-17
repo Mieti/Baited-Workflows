@@ -1,11 +1,12 @@
 from collections.abc import Generator
 
+from sqlalchemy.pool import NullPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.config import settings
 
 
-engine = create_engine(settings.database_url, echo=False, pool_pre_ping=True)
+engine = create_engine(settings.database_url, echo=False, poolclass=NullPool)
 
 
 def init_db() -> None:

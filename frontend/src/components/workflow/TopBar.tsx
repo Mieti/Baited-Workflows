@@ -1,6 +1,13 @@
 "use client";
 
-import { CheckCircle2, Database, Loader2, PlayCircle, Save, Shield, Undo2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  PlayCircle,
+  RotateCcw,
+  Save,
+  Undo2
+} from "lucide-react";
 
 type TopBarProps = {
   name: string;
@@ -9,11 +16,13 @@ type TopBarProps = {
   canUndo: boolean;
   isLoading: boolean;
   isValidating: boolean;
+  isResetting: boolean;
   isSaving: boolean;
   isSubmitting: boolean;
   isUnavailable: boolean;
   onNameChange: (name: string) => void;
   onUndo: () => void;
+  onResetDemo: () => void;
   onValidate: () => void;
   onSave: () => void;
   onSubmit: () => void;
@@ -26,23 +35,23 @@ export function TopBar({
   canUndo,
   isLoading,
   isValidating,
+  isResetting,
   isSaving,
   isSubmitting,
   isUnavailable,
   onNameChange,
   onUndo,
+  onResetDemo,
   onValidate,
   onSave,
   onSubmit
 }: TopBarProps) {
-  const controlsDisabled = isLoading || isValidating || isSaving || isSubmitting || isUnavailable;
+  const controlsDisabled =
+    isLoading || isValidating || isResetting || isSaving || isSubmitting || isUnavailable;
 
   return (
     <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-panel px-5">
       <div className="flex min-w-0 items-center gap-4">
-        <div className="grid h-10 w-10 place-items-center rounded-md border border-baited-green/40 bg-baited-green/10 text-baited-green">
-          <Shield className="h-5 w-5" />
-        </div>
         <div className="min-w-0">
           <input
             value={name}
@@ -69,6 +78,19 @@ export function TopBar({
           Undo
         </button>
         <button
+          onClick={onResetDemo}
+          disabled={controlsDisabled}
+          className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-amber-400/70 disabled:cursor-not-allowed disabled:opacity-60"
+          title="Reset demo workflow"
+        >
+          {isResetting ? (
+            <Loader2 className="h-4 w-4 animate-spin text-amber-300" />
+          ) : (
+            <RotateCcw className="h-4 w-4 text-amber-300" />
+          )}
+          {isResetting ? "Resetting" : "Reset demo"}
+        </button>
+        <button
           onClick={onValidate}
           disabled={controlsDisabled}
           className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-60"
@@ -85,7 +107,7 @@ export function TopBar({
           onClick={onSave}
           disabled={controlsDisabled}
           className="flex items-center gap-2 rounded-md border border-line bg-panel2 px-3 py-2 text-sm font-semibold text-baited-ink transition hover:border-baited-green/70 disabled:cursor-not-allowed disabled:opacity-60"
-          title="Save workflow to PostgreSQL"
+          title="Save workflow"
         >
           {isSaving ? (
             <Loader2 className="h-4 w-4 animate-spin text-sky-300" />
@@ -98,15 +120,11 @@ export function TopBar({
           onClick={onSubmit}
           disabled={controlsDisabled}
           className="flex items-center gap-2 rounded-md bg-baited-coral px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#ff7a68] disabled:cursor-not-allowed disabled:opacity-60"
-          title="Submit mock execution payload"
+          title="Submit workflow"
         >
           {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
-          {isSubmitting ? "Submitting" : "Submit mock"}
+          {isSubmitting ? "Submitting" : "Submit"}
         </button>
-        <div className="ml-2 flex items-center gap-2 rounded-md border border-line bg-canvas px-3 py-2 text-xs text-zinc-400">
-          <Database className="h-4 w-4 text-zinc-500" />
-          Postgres
-        </div>
       </div>
     </header>
   );

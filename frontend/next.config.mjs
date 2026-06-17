@@ -1,12 +1,6 @@
 import path from "node:path";
 
-const apiProxyUrl = process.env.API_PROXY_URL?.trim();
-
-if (!apiProxyUrl && process.env.VERCEL) {
-  throw new Error("API_PROXY_URL must be configured for Vercel deployments.");
-}
-
-const resolvedApiProxyUrl = (apiProxyUrl || "http://127.0.0.1:8000").replace(/\/$/, "");
+const apiProxyUrl = (process.env.API_PROXY_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -17,7 +11,7 @@ const nextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: `${resolvedApiProxyUrl}/api/:path*`
+        destination: `${apiProxyUrl}/api/:path*`
       }
     ];
   }

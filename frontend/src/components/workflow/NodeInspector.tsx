@@ -58,7 +58,6 @@ export function NodeInspector({
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-baited-ink">Branch</div>
-              <div className="truncate text-xs text-zinc-500">{edge.id}</div>
             </div>
             <button
               type="button"
@@ -191,7 +190,6 @@ export function NodeInspector({
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-baited-ink">{block?.label}</div>
-            <div className="truncate text-xs text-zinc-500">{node.id}</div>
           </div>
           <button
             type="button"

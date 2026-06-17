@@ -1,6 +1,7 @@
 param(
   [string]$ApiUrl = "http://127.0.0.1:8000",
   [string]$FrontendOrigin = "http://127.0.0.1:3000",
+  [switch]$IncludeReset,
   [switch]$IncludeSubmit
 )
 
@@ -67,6 +68,18 @@ $validation = Invoke-SmokeRequest `
 $validationResult = $validation.Content | ConvertFrom-Json
 if ($validationResult.valid -ne $true) {
   throw "Demo workflow validation returned invalid."
+}
+
+if ($IncludeReset) {
+  $reset = Invoke-SmokeRequest `
+    -Name "Demo reset" `
+    -Uri "$baseUrl/api/workflows/demo/reset" `
+    -Method "POST"
+
+  $resetResult = $reset.Content | ConvertFrom-Json
+  if ($resetResult.id -ne $workflow.id) {
+    throw "Demo reset returned workflow id '$($resetResult.id)' instead of '$($workflow.id)'."
+  }
 }
 
 $cors = Invoke-SmokeRequest `
