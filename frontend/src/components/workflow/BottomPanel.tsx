@@ -152,6 +152,8 @@ function SubmissionContent({ submission }: { submission: SubmissionRead | null }
     return <div className="text-sm text-zinc-500">Submit the workflow to save this run.</div>;
   }
 
+  const submittedPayload = JSON.stringify(submission.payload, null, 2);
+
   return (
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-2">
@@ -160,6 +162,14 @@ function SubmissionContent({ submission }: { submission: SubmissionRead | null }
       </div>
       <div className="rounded-md border border-baited-green/30 bg-baited-green/10 p-3 text-sm text-emerald-100">
         Workflow submission has been saved.
+      </div>
+      <div className="rounded-md border border-line bg-canvas">
+        <div className="border-b border-line px-3 py-2 text-xs font-semibold uppercase text-zinc-500">
+          Submitted payload
+        </div>
+        <pre className="thin-scrollbar max-h-[360px] overflow-auto p-3 text-xs leading-5 text-zinc-300">
+          {submittedPayload}
+        </pre>
       </div>
     </div>
   );

@@ -263,7 +263,7 @@ Implemented:
 - automatic cleanup of connected edges when a node is deleted;
 - cycle prevention when connecting nodes;
 - validation tab;
-- activity tab for the latest workflow submission;
+- activity tab for the latest workflow submission, including the actual submitted payload preview;
 - loading overlays plus production-style toast notifications for significant async results and errors;
 - explicit demo reset action that asks the backend to restore the original demo workflow;
 - backend-unavailable overlay when the API cannot provide catalog/workflow data;

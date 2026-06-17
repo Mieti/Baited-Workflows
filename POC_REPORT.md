@@ -126,7 +126,7 @@ La UI e' una schermata unica composta da:
 - sidebar sinistra con catalogo blocchi;
 - canvas centrale con nodi trascinabili e collegabili;
 - inspector destro per configurare nodi o edge;
-- bottom panel con tab `Validation` e `Activity`;
+- bottom panel con tab `Validation` e `Activity`, inclusa la preview del payload effettivamente sottomesso;
 - spinner e stati disabilitati per le operazioni in corso, con toast solo per esiti o blocchi significativi;
 - controlli zoom/fit e mini map in tema dark.
 
